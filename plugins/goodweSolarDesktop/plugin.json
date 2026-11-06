@@ -1,0 +1,16 @@
+{
+    "id": "goodweSolarDesktop",
+    "name": "GoodWe Solar Desktop Card",
+    "description": "Desktop widget for GoodWe solar production, battery storage, and home energy flow",
+    "version": "1.0.0",
+    "author": "Dominik",
+    "type": "desktop",
+    "capabilities": ["desktop-widget", "monitoring"],
+    "component": "./GoodWeSolarDesktop.qml",
+    "icon": "solar_power",
+    "requires_dms": ">=1.0.0",
+    "permissions": [
+        "settings_read",
+        "settings_write"
+    ]
+}
