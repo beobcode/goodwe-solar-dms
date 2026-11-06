@@ -527,6 +527,23 @@ PluginComponent {
     // Sized generously (680x480) with real-time curves & daily bar chart
     popoutWidth: 680
     popoutHeight: 480
+
+    // Ensure popout is centered at the top middle of the screen (matching DankDash / Clock panel)
+    pillClickAction: (x, y, width, section, screen) => {
+        const scr = screen || root.parentScreen;
+        const screenW = scr ? scr.width : 1920;
+        const centerX = Math.round((screenW - root.popoutWidth) / 2);
+        const topY = root.barThickness + 4;
+        root.triggerPopoutAt(centerX, topY, root.popoutWidth, "center", scr);
+    }
+
+    function triggerPopoutAt(targetX, targetY, targetWidth, targetSection, targetScreen) {
+        if (!hasPopout) return;
+        const barPos = axis?.edge === "left" ? 2 : (axis?.edge === "right" ? 3 : (axis?.edge === "top" ? 0 : 1));
+        pluginPopout.setTriggerPosition(targetX, targetY, targetWidth, targetSection, targetScreen, barPos, barThickness, barSpacing, barConfig);
+        pluginPopout.toggle();
+    }
+
     popoutContent: Component {
         PopoutComponent {
             id: popoutComp
