@@ -10,8 +10,8 @@ import qs.Modules.Plugins
 DesktopPluginComponent {
     id: root
 
-    minWidth: 160
-    minHeight: 160
+    minWidth: 200
+    minHeight: 220
 
     property real backgroundOpacity: (pluginData.backgroundOpacity ?? 80) / 100
     readonly property color tileBg: Theme.withAlpha(Theme.surfaceContainerHigh, backgroundOpacity)
@@ -34,6 +34,9 @@ DesktopPluginComponent {
     property real eDayLoadKwh: 0.0
     property bool hasFault: false
     property string faultSummary: "Normal"
+
+    property var historyPv: []
+    property var historyLoad: []
 
     function formatWatts(w) {
         const absW = Math.abs(w);
@@ -96,6 +99,9 @@ DesktopPluginComponent {
                     root.eDayLoadKwh = data.e_day_load_kwh ?? 0.0;
                     root.hasFault = data.has_fault ?? false;
                     root.faultSummary = data.fault_summary ?? "Normal";
+
+                    root.historyPv = data.history_pv ?? [];
+                    root.historyLoad = data.history_load ?? [];
                 } catch (e) {
                 }
             }
@@ -114,9 +120,9 @@ DesktopPluginComponent {
         ColumnLayout {
             anchors.fill: parent
             anchors.margins: Theme.spacingM
-            spacing: Theme.spacingS
+            spacing: Theme.spacingXS
 
-            // Top Header: Title & Fault / Status
+            // Top Header: Title & Today's Yield Badge
             RowLayout {
                 Layout.fillWidth: true
 
@@ -158,27 +164,112 @@ DesktopPluginComponent {
             }
 
             // Main Solar Generation Display
-            Item {
+            RowLayout {
                 Layout.fillWidth: true
-                Layout.fillHeight: true
 
                 Column {
-                    anchors.centerIn: parent
-                    spacing: 2
-
+                    spacing: 0
                     StyledText {
                         text: root.isOnline ? root.formatWatts(root.pvPowerW) : "Offline"
-                        font.pixelSize: Theme.fontSizeLarge + 8
+                        font.pixelSize: Theme.fontSizeLarge + 6
                         font.weight: Font.Bold
                         color: root.pvPowerW > 500 ? "#f59e0b" : Theme.surfaceText
-                        anchors.horizontalCenter: parent.horizontalCenter
                     }
 
                     StyledText {
-                        text: root.hasFault ? root.faultSummary : (root.isOnline ? (root.pvPowerW > 0 ? "Generating Power" : "Standby (Night/Cloud)") : "Inverter Unreachable")
-                        font.pixelSize: Theme.fontSizeSmall
+                        text: root.hasFault ? root.faultSummary : (root.isOnline ? (root.pvPowerW > 0 ? "Generating Power" : "Standby") : "Inverter Unreachable")
+                        font.pixelSize: Theme.fontSizeSmall - 2
                         color: root.hasFault ? Theme.error : Theme.surfaceVariantText
-                        anchors.horizontalCenter: parent.horizontalCenter
+                    }
+                }
+
+                Item { Layout.fillWidth: true }
+
+                // Battery Badge
+                Row {
+                    spacing: 4
+                    DankIcon {
+                        name: root.getBatteryIcon(root.batterySoc, root.batteryChargeW > 0)
+                        size: Theme.iconSize - 4
+                        color: root.batteryChargeW > 0 ? "#10b981" : (root.batteryDischargeW > 0 ? "#3b82f6" : Theme.surfaceVariantText)
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                    StyledText {
+                        text: `${root.batterySoc}%`
+                        font.pixelSize: Theme.fontSizeMedium
+                        font.weight: Font.Bold
+                        color: Theme.surfaceText
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                }
+            }
+
+            // Mini Generation Curve
+            Item {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                Layout.minimumHeight: 48
+
+                Canvas {
+                    id: miniCanvas
+                    anchors.fill: parent
+                    renderStrategy: Canvas.Cooperative
+
+                    property var pvData: root.historyPv
+                    property var loadData: root.historyLoad
+
+                    onPvDataChanged: requestPaint()
+                    onLoadDataChanged: requestPaint()
+                    onWidthChanged: requestPaint()
+                    onHeightChanged: requestPaint()
+
+                    onPaint: {
+                        const ctx = getContext("2d");
+                        ctx.reset();
+                        ctx.clearRect(0, 0, width, height);
+
+                        if (!pvData || pvData.length < 2) {
+                            ctx.fillStyle = Qt.rgba(1, 1, 1, 0.3);
+                            ctx.font = "11px sans-serif";
+                            ctx.textAlign = "center";
+                            ctx.fillText("Tracking daily curve...", width / 2, height / 2);
+                            return;
+                        }
+
+                        let maxVal = 1000;
+                        for (let i = 0; i < pvData.length; i++) maxVal = Math.max(maxVal, pvData[i]);
+                        maxVal *= 1.15;
+
+                        const n = pvData.length;
+                        const stepX = width / (n - 1);
+
+                        // Gradient fill
+                        const grad = ctx.createLinearGradient(0, 0, 0, height);
+                        grad.addColorStop(0, Qt.rgba(0.96, 0.62, 0.04, 0.35));
+                        grad.addColorStop(1, Qt.rgba(0.96, 0.62, 0.04, 0.02));
+
+                        ctx.fillStyle = grad;
+                        ctx.beginPath();
+                        ctx.moveTo(0, height);
+                        for (let i = 0; i < n; i++) {
+                            const px = i * stepX;
+                            const py = height - (pvData[i] / maxVal) * (height - 4);
+                            ctx.lineTo(px, py);
+                        }
+                        ctx.lineTo(width, height);
+                        ctx.closePath();
+                        ctx.fill();
+
+                        // Solar Line
+                        ctx.strokeStyle = "#f59e0b";
+                        ctx.lineWidth = 2.0;
+                        ctx.beginPath();
+                        for (let i = 0; i < n; i++) {
+                            const px = i * stepX;
+                            const py = height - (pvData[i] / maxVal) * (height - 4);
+                            i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+                        }
+                        ctx.stroke();
                     }
                 }
             }
@@ -187,34 +278,24 @@ DesktopPluginComponent {
             GridLayout {
                 Layout.fillWidth: true
                 columns: 3
-                rowSpacing: Theme.spacingXS
+                rowSpacing: 2
                 columnSpacing: Theme.spacingS
 
-                // 1. Battery
+                // 1. Battery Flow
                 Column {
                     Layout.fillWidth: true
-                    spacing: 2
-                    Row {
-                        spacing: 4
+                    spacing: 1
+                    StyledText {
+                        text: "Battery"
+                        font.pixelSize: Theme.fontSizeSmall - 2
+                        color: Theme.surfaceVariantText
                         anchors.horizontalCenter: parent.horizontalCenter
-                        DankIcon {
-                            name: root.getBatteryIcon(root.batterySoc, root.batteryChargeW > 0)
-                            size: Theme.iconSize - 6
-                            color: root.batteryChargeW > 0 ? "#10b981" : (root.batteryDischargeW > 0 ? "#3b82f6" : Theme.surfaceVariantText)
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-                        StyledText {
-                            text: `${root.batterySoc}%`
-                            font.pixelSize: Theme.fontSizeSmall
-                            font.weight: Font.Bold
-                            color: Theme.surfaceText
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
                     }
                     StyledText {
                         text: root.batteryChargeW > 0 ? `+${root.formatWatts(root.batteryChargeW)}` : (root.batteryDischargeW > 0 ? `-${root.formatWatts(root.batteryDischargeW)}` : "Idle")
-                        font.pixelSize: Theme.fontSizeSmall - 2
-                        color: Theme.surfaceVariantText
+                        font.pixelSize: Theme.fontSizeSmall
+                        font.weight: Font.Bold
+                        color: root.batteryChargeW > 0 ? "#10b981" : (root.batteryDischargeW > 0 ? "#3b82f6" : Theme.surfaceText)
                         anchors.horizontalCenter: parent.horizontalCenter
                     }
                 }
@@ -222,28 +303,18 @@ DesktopPluginComponent {
                 // 2. House Load
                 Column {
                     Layout.fillWidth: true
-                    spacing: 2
-                    Row {
-                        spacing: 4
+                    spacing: 1
+                    StyledText {
+                        text: "Home Load"
+                        font.pixelSize: Theme.fontSizeSmall - 2
+                        color: Theme.surfaceVariantText
                         anchors.horizontalCenter: parent.horizontalCenter
-                        DankIcon {
-                            name: "home"
-                            size: Theme.iconSize - 6
-                            color: "#8b5cf6"
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-                        StyledText {
-                            text: "Load"
-                            font.pixelSize: Theme.fontSizeSmall
-                            font.weight: Font.Bold
-                            color: Theme.surfaceText
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
                     }
                     StyledText {
                         text: root.formatWatts(root.houseConsumptionW)
-                        font.pixelSize: Theme.fontSizeSmall - 2
-                        color: Theme.surfaceVariantText
+                        font.pixelSize: Theme.fontSizeSmall
+                        font.weight: Font.Bold
+                        color: "#8b5cf6"
                         anchors.horizontalCenter: parent.horizontalCenter
                     }
                 }
@@ -251,28 +322,18 @@ DesktopPluginComponent {
                 // 3. Grid Export/Import
                 Column {
                     Layout.fillWidth: true
-                    spacing: 2
-                    Row {
-                        spacing: 4
+                    spacing: 1
+                    StyledText {
+                        text: root.gridExportW > 0 ? "Grid Export" : "Grid Import"
+                        font.pixelSize: Theme.fontSizeSmall - 2
+                        color: Theme.surfaceVariantText
                         anchors.horizontalCenter: parent.horizontalCenter
-                        DankIcon {
-                            name: "electric_bolt"
-                            size: Theme.iconSize - 6
-                            color: root.gridExportW > 0 ? "#10b981" : (root.gridImportW > 0 ? "#ef4444" : Theme.surfaceVariantText)
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-                        StyledText {
-                            text: root.gridExportW > 0 ? "Export" : "Import"
-                            font.pixelSize: Theme.fontSizeSmall
-                            font.weight: Font.Bold
-                            color: root.gridExportW > 0 ? "#10b981" : Theme.surfaceText
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
                     }
                     StyledText {
                         text: root.formatWatts(root.gridExportW > 0 ? root.gridExportW : root.gridImportW)
-                        font.pixelSize: Theme.fontSizeSmall - 2
-                        color: Theme.surfaceVariantText
+                        font.pixelSize: Theme.fontSizeSmall
+                        font.weight: Font.Bold
+                        color: root.gridExportW > 0 ? "#10b981" : Theme.surfaceText
                         anchors.horizontalCenter: parent.horizontalCenter
                     }
                 }

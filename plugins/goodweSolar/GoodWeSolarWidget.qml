@@ -56,6 +56,11 @@ PluginComponent {
     property string faultSummary: "System Normal"
     property var faultMessages: []
 
+    // Historical graphs data
+    property var historyPv: []
+    property var historyLoad: []
+    property var recentDays: []
+
     // Configuration / settings
     property bool showBatteryInBar: pluginData.showBatteryInBar ?? true
     property int pollInterval: parseInt(pluginData.pollInterval || "3000")
@@ -95,7 +100,6 @@ PluginComponent {
     ccDetailHeight: 340
 
     onCcWidgetToggled: {
-        // Force refresh telemetry when toggled
         fetchStatsProcess.running = true;
         ToastService.showInfo("GoodWe Solar", "Refreshing telemetry...");
     }
@@ -170,8 +174,11 @@ PluginComponent {
                     root.hasWarning = data.has_warning ?? false;
                     root.faultSummary = data.fault_summary ?? "System Normal";
                     root.faultMessages = data.fault_messages ?? [];
+
+                    root.historyPv = data.history_pv ?? [];
+                    root.historyLoad = data.history_load ?? [];
+                    root.recentDays = data.recent_days ?? [];
                 } catch (e) {
-                    // Ignore parse error while file is being swapped
                 }
             }
         }
@@ -516,80 +523,188 @@ PluginComponent {
         }
     }
 
-    // 4. Popout Dialog (When user clicks on DankBar pill)
-    popoutWidth: 420
-    popoutHeight: 400
+    // 4. Centered Dash / Popout Dialog
+    // Sized generously (680x480) with real-time curves & daily bar chart
+    popoutWidth: 680
+    popoutHeight: 480
     popoutContent: Component {
         PopoutComponent {
-            headerText: "GoodWe Solar Monitor"
-            detailsText: root.faultSummary
+            id: popoutComp
+            headerText: "GoodWe Solar & Battery System"
+            detailsText: `${root.faultSummary} • Updated ${root.lastUpdated}`
             showCloseButton: true
 
             Column {
                 width: parent.width
                 spacing: Theme.spacingM
 
-                // Quick Overview Badges
+                // Top 4 Flow Tiles
                 Row {
                     width: parent.width
-                    spacing: Theme.spacingM
+                    spacing: Theme.spacingS
 
+                    // Solar Tile
                     Rectangle {
-                        width: (parent.width - Theme.spacingM) / 2
-                        height: 80
+                        width: (parent.width - Theme.spacingS * 3) / 4
+                        height: 70
                         radius: Theme.cornerRadius
                         color: Theme.surfaceContainerHighest
 
                         Column {
                             anchors.centerIn: parent
                             spacing: 2
-                            DankIcon {
-                                name: "solar_power"
-                                color: "#f59e0b"
-                                size: Theme.iconSize
+                            Row {
+                                spacing: 4
                                 anchors.horizontalCenter: parent.horizontalCenter
+                                DankIcon {
+                                    name: "solar_power"
+                                    color: "#f59e0b"
+                                    size: Theme.iconSize - 6
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+                                StyledText {
+                                    text: "Solar PV"
+                                    font.pixelSize: Theme.fontSizeSmall
+                                    color: Theme.surfaceVariantText
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
                             }
                             StyledText {
                                 text: root.formatWatts(root.pvPowerW)
                                 font.pixelSize: Theme.fontSizeLarge
                                 font.weight: Font.Bold
-                                color: Theme.surfaceText
+                                color: "#f59e0b"
                                 anchors.horizontalCenter: parent.horizontalCenter
                             }
                             StyledText {
-                                text: `Today: ${root.eDayPvKwh} kWh`
-                                font.pixelSize: Theme.fontSizeSmall
+                                text: `Day: ${root.eDayPvKwh} kWh`
+                                font.pixelSize: Theme.fontSizeSmall - 2
                                 color: Theme.surfaceVariantText
                                 anchors.horizontalCenter: parent.horizontalCenter
                             }
                         }
                     }
 
+                    // Battery Tile
                     Rectangle {
-                        width: (parent.width - Theme.spacingM) / 2
-                        height: 80
+                        width: (parent.width - Theme.spacingS * 3) / 4
+                        height: 70
                         radius: Theme.cornerRadius
                         color: Theme.surfaceContainerHighest
 
                         Column {
                             anchors.centerIn: parent
                             spacing: 2
-                            DankIcon {
-                                name: root.getBatteryIcon(root.batterySoc, root.batteryChargeW > 0)
-                                color: root.batteryChargeW > 0 ? "#10b981" : (root.batteryDischargeW > 0 ? "#3b82f6" : Theme.surfaceVariantText)
-                                size: Theme.iconSize
+                            Row {
+                                spacing: 4
                                 anchors.horizontalCenter: parent.horizontalCenter
+                                DankIcon {
+                                    name: root.getBatteryIcon(root.batterySoc, root.batteryChargeW > 0)
+                                    color: root.batteryChargeW > 0 ? "#10b981" : (root.batteryDischargeW > 0 ? "#3b82f6" : Theme.surfaceVariantText)
+                                    size: Theme.iconSize - 6
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+                                StyledText {
+                                    text: `Bat ${root.batterySoc}%`
+                                    font.pixelSize: Theme.fontSizeSmall
+                                    color: Theme.surfaceVariantText
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
                             }
                             StyledText {
-                                text: `${root.batterySoc}%`
+                                text: root.batteryChargeW > 0 ? `+${root.formatWatts(root.batteryChargeW)}` : (root.batteryDischargeW > 0 ? `-${root.formatWatts(root.batteryDischargeW)}` : "0 W")
                                 font.pixelSize: Theme.fontSizeLarge
                                 font.weight: Font.Bold
-                                color: Theme.surfaceText
+                                color: root.batteryChargeW > 0 ? "#10b981" : (root.batteryDischargeW > 0 ? "#3b82f6" : Theme.surfaceText)
                                 anchors.horizontalCenter: parent.horizontalCenter
                             }
                             StyledText {
-                                text: root.batteryMode + (root.batteryChargeW > 0 ? ` (${root.formatWatts(root.batteryChargeW)})` : "")
-                                font.pixelSize: Theme.fontSizeSmall
+                                text: root.batteryMode
+                                font.pixelSize: Theme.fontSizeSmall - 2
+                                color: Theme.surfaceVariantText
+                                anchors.horizontalCenter: parent.horizontalCenter
+                            }
+                        }
+                    }
+
+                    // Home Load Tile
+                    Rectangle {
+                        width: (parent.width - Theme.spacingS * 3) / 4
+                        height: 70
+                        radius: Theme.cornerRadius
+                        color: Theme.surfaceContainerHighest
+
+                        Column {
+                            anchors.centerIn: parent
+                            spacing: 2
+                            Row {
+                                spacing: 4
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                DankIcon {
+                                    name: "home"
+                                    color: "#8b5cf6"
+                                    size: Theme.iconSize - 6
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+                                StyledText {
+                                    text: "Home Load"
+                                    font.pixelSize: Theme.fontSizeSmall
+                                    color: Theme.surfaceVariantText
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+                            }
+                            StyledText {
+                                text: root.formatWatts(root.houseConsumptionW)
+                                font.pixelSize: Theme.fontSizeLarge
+                                font.weight: Font.Bold
+                                color: "#8b5cf6"
+                                anchors.horizontalCenter: parent.horizontalCenter
+                            }
+                            StyledText {
+                                text: `Day: ${root.eDayLoadKwh} kWh`
+                                font.pixelSize: Theme.fontSizeSmall - 2
+                                color: Theme.surfaceVariantText
+                                anchors.horizontalCenter: parent.horizontalCenter
+                            }
+                        }
+                    }
+
+                    // Grid Flow Tile
+                    Rectangle {
+                        width: (parent.width - Theme.spacingS * 3) / 4
+                        height: 70
+                        radius: Theme.cornerRadius
+                        color: Theme.surfaceContainerHighest
+
+                        Column {
+                            anchors.centerIn: parent
+                            spacing: 2
+                            Row {
+                                spacing: 4
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                DankIcon {
+                                    name: "electric_bolt"
+                                    color: root.gridExportW > 0 ? "#10b981" : (root.gridImportW > 0 ? "#ef4444" : Theme.surfaceVariantText)
+                                    size: Theme.iconSize - 6
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+                                StyledText {
+                                    text: root.gridExportW > 0 ? "Grid Export" : "Grid Import"
+                                    font.pixelSize: Theme.fontSizeSmall
+                                    color: Theme.surfaceVariantText
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+                            }
+                            StyledText {
+                                text: root.formatWatts(root.gridExportW > 0 ? root.gridExportW : root.gridImportW)
+                                font.pixelSize: Theme.fontSizeLarge
+                                font.weight: Font.Bold
+                                color: root.gridExportW > 0 ? "#10b981" : (root.gridImportW > 0 ? "#ef4444" : Theme.surfaceText)
+                                anchors.horizontalCenter: parent.horizontalCenter
+                            }
+                            StyledText {
+                                text: `Export: ${root.eDayExpKwh} kWh`
+                                font.pixelSize: Theme.fontSizeSmall - 2
                                 color: Theme.surfaceVariantText
                                 anchors.horizontalCenter: parent.horizontalCenter
                             }
@@ -597,106 +712,206 @@ PluginComponent {
                     }
                 }
 
-                // Grid and House Metrics List
-                Column {
+                // Intra-day Solar Generation Graph
+                Rectangle {
                     width: parent.width
-                    spacing: Theme.spacingS
+                    height: 180
+                    radius: Theme.cornerRadius
+                    color: Theme.surfaceContainerHighest
 
-                    Rectangle {
-                        width: parent.width
-                        height: 38
-                        radius: Theme.cornerRadius
-                        color: Theme.surfaceContainerHigh
+                    Column {
+                        anchors.fill: parent
+                        anchors.margins: Theme.spacingS
+                        spacing: 4
 
                         Row {
-                            anchors.fill: parent
-                            anchors.leftMargin: Theme.spacingM
-                            anchors.rightMargin: Theme.spacingM
-                            spacing: Theme.spacingS
-
-                            DankIcon {
-                                name: "home"
-                                color: "#8b5cf6"
-                                size: Theme.iconSize - 4
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
+                            width: parent.width
                             StyledText {
-                                text: "House Consumption"
-                                color: Theme.surfaceText
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-                            Item { Layout.fillWidth: true; width: 10 }
-                            StyledText {
-                                text: root.formatWatts(root.houseConsumptionW)
+                                text: "Generation & Load Over Time"
+                                font.pixelSize: Theme.fontSizeMedium
                                 font.weight: Font.Bold
                                 color: Theme.surfaceText
-                                anchors.verticalCenter: parent.verticalCenter
+                            }
+                            Item { Layout.fillWidth: true; width: 10 }
+                            Row {
+                                spacing: Theme.spacingM
+                                Row {
+                                    spacing: 4
+                                    Rectangle { width: 10; height: 10; radius: 5; color: "#f59e0b"; anchors.verticalCenter: parent.verticalCenter }
+                                    StyledText { text: "Solar PV (W)"; font.pixelSize: Theme.fontSizeSmall - 2; color: Theme.surfaceVariantText }
+                                }
+                                Row {
+                                    spacing: 4
+                                    Rectangle { width: 10; height: 10; radius: 5; color: "#8b5cf6"; anchors.verticalCenter: parent.verticalCenter }
+                                    StyledText { text: "House Load (W)"; font.pixelSize: Theme.fontSizeSmall - 2; color: Theme.surfaceVariantText }
+                                }
+                            }
+                        }
+
+                        // Canvas Graph Area
+                        Canvas {
+                            id: solarCanvas
+                            width: parent.width
+                            height: parent.height - 30
+                            renderStrategy: Canvas.Cooperative
+
+                            property var pvData: root.historyPv
+                            property var loadData: root.historyLoad
+
+                            onPvDataChanged: requestPaint()
+                            onLoadDataChanged: requestPaint()
+                            onWidthChanged: requestPaint()
+                            onHeightChanged: requestPaint()
+
+                            onPaint: {
+                                const ctx = getContext("2d");
+                                ctx.reset();
+                                ctx.clearRect(0, 0, width, height);
+
+                                if (!pvData || pvData.length < 2) {
+                                    // Fallback text if history has just started collecting
+                                    ctx.fillStyle = Qt.rgba(1, 1, 1, 0.4);
+                                    ctx.font = "12px sans-serif";
+                                    ctx.textAlign = "center";
+                                    ctx.fillText("Gathering day data points...", width / 2, height / 2);
+                                    return;
+                                }
+
+                                // Compute peak max value for Y-axis scale
+                                let maxVal = 1000;
+                                for (let i = 0; i < pvData.length; i++) maxVal = Math.max(maxVal, pvData[i]);
+                                if (loadData) {
+                                    for (let j = 0; j < loadData.length; j++) maxVal = Math.max(maxVal, loadData[j]);
+                                }
+                                maxVal *= 1.15;
+
+                                const n = pvData.length;
+                                const stepX = width / (n - 1);
+
+                                // 1. Draw Solar PV Area Gradient
+                                const gradPv = ctx.createLinearGradient(0, 0, 0, height);
+                                gradPv.addColorStop(0, Qt.rgba(0.96, 0.62, 0.04, 0.35));
+                                gradPv.addColorStop(1, Qt.rgba(0.96, 0.62, 0.04, 0.02));
+
+                                ctx.fillStyle = gradPv;
+                                ctx.beginPath();
+                                ctx.moveTo(0, height);
+                                for (let i = 0; i < n; i++) {
+                                    const px = i * stepX;
+                                    const py = height - (pvData[i] / maxVal) * (height - 10);
+                                    ctx.lineTo(px, py);
+                                }
+                                ctx.lineTo(width, height);
+                                ctx.closePath();
+                                ctx.fill();
+
+                                // 2. Draw Solar PV Line
+                                ctx.strokeStyle = "#f59e0b";
+                                ctx.lineWidth = 2.0;
+                                ctx.beginPath();
+                                for (let i = 0; i < n; i++) {
+                                    const px = i * stepX;
+                                    const py = height - (pvData[i] / maxVal) * (height - 10);
+                                    i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+                                }
+                                ctx.stroke();
+
+                                // 3. Draw House Load Line
+                                if (loadData && loadData.length === n) {
+                                    ctx.strokeStyle = "#8b5cf6";
+                                    ctx.lineWidth = 1.5;
+                                    ctx.setLineDash([3, 3]);
+                                    ctx.beginPath();
+                                    for (let j = 0; j < n; j++) {
+                                        const px = j * stepX;
+                                        const py = height - (loadData[j] / maxVal) * (height - 10);
+                                        j === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+                                    }
+                                    ctx.stroke();
+                                    ctx.setLineDash([]);
+                                }
                             }
                         }
                     }
+                }
 
-                    Rectangle {
-                        width: parent.width
-                        height: 38
-                        radius: Theme.cornerRadius
-                        color: Theme.surfaceContainerHigh
+                // Daily Yield Summary Bars (Past Days)
+                Rectangle {
+                    width: parent.width
+                    height: 120
+                    radius: Theme.cornerRadius
+                    color: Theme.surfaceContainerHighest
+
+                    Column {
+                        anchors.fill: parent
+                        anchors.margins: Theme.spacingS
+                        spacing: 4
 
                         Row {
-                            anchors.fill: parent
-                            anchors.leftMargin: Theme.spacingM
-                            anchors.rightMargin: Theme.spacingM
-                            spacing: Theme.spacingS
-
-                            DankIcon {
-                                name: "electric_bolt"
-                                color: root.gridExportW > 0 ? "#10b981" : (root.gridImportW > 0 ? "#ef4444" : Theme.surfaceVariantText)
-                                size: Theme.iconSize - 4
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
+                            width: parent.width
                             StyledText {
-                                text: root.gridExportW > 0 ? "Grid Export" : "Grid Import"
+                                text: "Daily Total Generation (kWh)"
+                                font.pixelSize: Theme.fontSizeSmall
+                                font.weight: Font.Bold
                                 color: Theme.surfaceText
-                                anchors.verticalCenter: parent.verticalCenter
                             }
                             Item { Layout.fillWidth: true; width: 10 }
                             StyledText {
-                                text: root.formatWatts(root.gridExportW > 0 ? root.gridExportW : root.gridImportW)
-                                font.weight: Font.Bold
-                                color: Theme.surfaceText
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-                        }
-                    }
-
-                    Rectangle {
-                        width: parent.width
-                        height: 38
-                        radius: Theme.cornerRadius
-                        color: Theme.surfaceContainerHigh
-
-                        Row {
-                            anchors.fill: parent
-                            anchors.leftMargin: Theme.spacingM
-                            anchors.rightMargin: Theme.spacingM
-                            spacing: Theme.spacingS
-
-                            DankIcon {
-                                name: "thermostat"
+                                text: `Total PV: ${root.eTotalPvKwh} kWh`
+                                font.pixelSize: Theme.fontSizeSmall - 2
                                 color: Theme.surfaceVariantText
-                                size: Theme.iconSize - 4
-                                anchors.verticalCenter: parent.verticalCenter
                             }
-                            StyledText {
-                                text: "Inverter Temperature"
-                                color: Theme.surfaceText
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-                            Item { Layout.fillWidth: true; width: 10 }
-                            StyledText {
-                                text: `${root.tempInverter}°C (Air: ${root.tempAir}°C)`
-                                font.weight: Font.Bold
-                                color: Theme.surfaceText
-                                anchors.verticalCenter: parent.verticalCenter
+                        }
+
+                        // Bar representations
+                        Row {
+                            width: parent.width
+                            height: parent.height - 28
+                            spacing: Theme.spacingS
+
+                            Repeater {
+                                model: root.recentDays.length > 0 ? root.recentDays : [{ day_name: "Today", pv_kwh: root.eDayPvKwh, exp_kwh: root.eDayExpKwh }]
+
+                                Rectangle {
+                                    width: (parent.width - (Theme.spacingS * 6)) / Math.max(1, (root.recentDays.length || 1))
+                                    height: parent.height
+                                    color: "transparent"
+
+                                    Column {
+                                        anchors.fill: parent
+                                        spacing: 2
+
+                                        StyledText {
+                                            text: `${modelData.pv_kwh}k`
+                                            font.pixelSize: Theme.fontSizeSmall - 3
+                                            font.weight: Font.Bold
+                                            color: "#f59e0b"
+                                            anchors.horizontalCenter: parent.horizontalCenter
+                                        }
+
+                                        Item {
+                                            width: parent.width
+                                            height: parent.height - 30
+
+                                            Rectangle {
+                                                width: Math.min(24, parent.width * 0.7)
+                                                anchors.horizontalCenter: parent.horizontalCenter
+                                                anchors.bottom: parent.bottom
+                                                // Max day scale ~35 kWh
+                                                height: Math.max(4, Math.min(parent.height, (modelData.pv_kwh / 35.0) * parent.height))
+                                                radius: 4
+                                                color: "#f59e0b"
+                                            }
+                                        }
+
+                                        StyledText {
+                                            text: modelData.day_name || "Day"
+                                            font.pixelSize: Theme.fontSizeSmall - 3
+                                            color: Theme.surfaceVariantText
+                                            anchors.horizontalCenter: parent.horizontalCenter
+                                        }
+                                    }
+                                }
                             }
                         }
                     }

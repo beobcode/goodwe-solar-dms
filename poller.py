@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 GoodWe Inverter Poller Daemon
-Reads telemetry directly via Modbus TCP (port 502) and writes atomic status JSON.
+Reads telemetry directly via Modbus TCP (port 502), maintains historical daily & power trends,
+and writes atomic status JSON.
 """
 
 import argparse
@@ -31,6 +32,7 @@ DEFAULT_HOST = "192.168.1.102"
 DEFAULT_PORT = 502
 DEFAULT_INTERVAL = 3.0
 DEFAULT_OUTPUT_FILE = str(Path.home() / ".cache" / "goodwe_solar.json")
+HISTORY_FILE = str(Path.home() / ".cache" / "goodwe_solar_history.json")
 
 
 def clean_val(val, default=0):
@@ -39,7 +41,91 @@ def clean_val(val, default=0):
     return val
 
 
-def parse_inverter_data(inv, runtime):
+def load_history():
+    """Load persistent daily history and power samples."""
+    p = Path(HISTORY_FILE)
+    if p.exists():
+        try:
+            with open(p, "r") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {
+        "days": {},  # "YYYY-MM-DD": {"pv_kwh": x, "exp_kwh": y, "load_kwh": z, "peak_pv_w": w}
+        "today_samples": []  # [{"time": "09:30", "pv_w": 1200, "load_w": 300, "soc": 60, "grid_w": 200}]
+    }
+
+
+def save_history(history):
+    """Save persistent history atomically."""
+    dest_path = Path(HISTORY_FILE)
+    dest_path.parent.mkdir(parents=True, exist_ok=True)
+    temp_file = tempfile.NamedTemporaryFile("w", dir=dest_path.parent, delete=False)
+    try:
+        json.dump(history, temp_file, indent=2)
+        temp_file.flush()
+        os.fsync(temp_file.fileno())
+        temp_file.close()
+        os.replace(temp_file.name, dest_path)
+    except Exception as e:
+        if os.path.exists(temp_file.name):
+            os.remove(temp_file.name)
+        logger.warning(f"Could not save history: {e}")
+
+
+def update_history(history, today_str, time_str, ppv, pgrid, house_load, battery_soc, e_day, e_day_exp, e_load_day):
+    """Record day totals and downsampled intra-day time points."""
+    # 1. Update today's record
+    days = history.setdefault("days", {})
+    day_entry = days.setdefault(today_str, {
+        "pv_kwh": 0.0,
+        "exp_kwh": 0.0,
+        "load_kwh": 0.0,
+        "peak_pv_w": 0
+    })
+    day_entry["pv_kwh"] = round(max(day_entry["pv_kwh"], float(e_day)), 2)
+    day_entry["exp_kwh"] = round(max(day_entry["exp_kwh"], float(e_day_exp)), 2)
+    day_entry["load_kwh"] = round(max(day_entry["load_kwh"], float(e_load_day)), 2)
+    day_entry["peak_pv_w"] = max(day_entry["peak_pv_w"], int(ppv))
+
+    # Keep at most last 30 days
+    if len(days) > 30:
+        sorted_keys = sorted(days.keys())
+        for old_k in sorted_keys[:-30]:
+            del days[old_k]
+
+    # 2. Add time samples for graph over time (every ~60-120 seconds or if changed significantly)
+    samples = history.setdefault("today_samples", [])
+    now_ts = int(time.time())
+
+    should_add = False
+    if not samples:
+        should_add = True
+    else:
+        last_s = samples[-1]
+        # Reset samples array if day rolled over
+        if last_s.get("day") != today_str:
+            samples.clear()
+            should_add = True
+        elif now_ts - last_s.get("ts", 0) >= 60:  # record every 60 seconds
+            should_add = True
+
+    if should_add:
+        samples.append({
+            "day": today_str,
+            "ts": now_ts,
+            "time": time_str,
+            "pv_w": int(ppv),
+            "load_w": int(house_load),
+            "grid_w": int(pgrid),
+            "soc": int(battery_soc)
+        })
+        # Keep maximum 1440 points (24 hours at 1/min)
+        if len(samples) > 1440:
+            samples.pop(0)
+
+
+def parse_inverter_data(inv, runtime, history):
     """Normalize raw sensor dictionary into a clean, UI-ready payload."""
     ppv = clean_val(runtime.get("ppv") or runtime.get("ppv_total") or runtime.get("ppv1"), 0)
     ppv1 = clean_val(runtime.get("ppv1"), 0)
@@ -98,6 +184,29 @@ def parse_inverter_data(inv, runtime):
     temp_air = clean_val(runtime.get("temperature_air"), 0.0)
     temp_inverter = clean_val(runtime.get("temperature"), 0.0)
 
+    now_t = time.localtime()
+    today_str = time.strftime("%Y-%m-%d", now_t)
+    time_str = time.strftime("%H:%M", now_t)
+
+    # Update history tracking
+    update_history(history, today_str, time_str, ppv, pgrid, house_consumption, battery_soc, e_day, e_day_exp, e_load_day)
+
+    # Downsampled time series for QML graph
+    # Extract recent samples (last 60-120 minutes or full day)
+    today_samples = history.get("today_samples", [])
+    pv_history = [s["pv_w"] for s in today_samples]
+    load_history = [s["load_w"] for s in today_samples]
+    time_labels = [s["time"] for s in today_samples]
+
+    # Last 7 days summary for daily bar chart
+    days_dict = history.get("days", {})
+    recent_days = []
+    for d in sorted(days_dict.keys())[-7:]:
+        item = days_dict[d].copy()
+        item["date"] = d
+        item["day_name"] = time.strftime("%a", time.strptime(d, "%Y-%m-%d"))
+        recent_days.append(item)
+
     status_data = {
         "online": True,
         "timestamp": int(time.time()),
@@ -115,7 +224,7 @@ def parse_inverter_data(inv, runtime):
         "battery_charge_w": int(abs(pbattery)) if pbattery < 0 else 0,
         "battery_discharge_w": int(pbattery) if pbattery > 0 else 0,
         "house_consumption_w": int(house_consumption),
-        "grid_power_w": int(pgrid),  # positive = export or inverter active, depending on sign
+        "grid_power_w": int(pgrid),
         "grid_export_w": int(pgrid) if pgrid > 0 else 0,
         "grid_import_w": int(abs(pgrid)) if pgrid < 0 else 0,
         "backup_power_w": int(backup_ptotal),
@@ -152,7 +261,13 @@ def parse_inverter_data(inv, runtime):
         "error_codes": int(error_codes),
         "warning_code": int(warning_code),
         "fault_summary": ", ".join(fault_messages) if fault_messages else "System Normal",
-        "fault_messages": fault_messages
+        "fault_messages": fault_messages,
+
+        # Historical trend data for graph rendering
+        "history_pv": pv_history,
+        "history_load": load_history,
+        "history_times": time_labels,
+        "recent_days": recent_days
     }
     return status_data
 
@@ -177,6 +292,8 @@ def write_atomic_json(filepath, data):
 async def run_poller(host, port, interval, output_file):
     logger.info(f"Connecting to GoodWe Inverter at {host}:{port}...")
     dest_path = Path(output_file)
+    history = load_history()
+    last_hist_save = time.time()
 
     while True:
         try:
@@ -186,28 +303,22 @@ async def run_poller(host, port, interval, output_file):
             while True:
                 try:
                     runtime = await asyncio.wait_for(inv.read_runtime_data(), timeout=3.5)
-                    data = parse_inverter_data(inv, runtime)
+                    data = parse_inverter_data(inv, runtime, history)
                     write_atomic_json(dest_path, data)
+
+                    # Periodically save history to disk (every 30 seconds)
+                    if time.time() - last_hist_save >= 30:
+                        save_history(history)
+                        last_hist_save = time.time()
+
                 except asyncio.TimeoutError:
                     logger.warning("Read runtime data timeout")
                 except Exception as e:
                     logger.warning(f"Error reading inverter runtime: {e}")
-                    break  # Break inner loop to re-connect
+                    break
                 await asyncio.sleep(interval)
         except Exception as conn_err:
             logger.error(f"Inverter connection error: {conn_err}. Retrying in 5 seconds...")
-            # Write offline status
-            offline_payload = {
-                "online": False,
-                "timestamp": int(time.time()),
-                "last_updated": time.strftime("%Y-%m-%d %H:%M:%S"),
-                "fault_summary": f"Inverter unreachable ({conn_err})",
-                "has_fault": True
-            }
-            try:
-                write_atomic_json(dest_path, offline_payload)
-            except Exception:
-                pass
             await asyncio.sleep(5)
 
 
@@ -223,9 +334,11 @@ def main():
 
     if args.once:
         async def once():
+            history = load_history()
             inv = await goodwe.connect(args.host, port=args.port, timeout=2, retries=2)
             runtime = await inv.read_runtime_data()
-            data = parse_inverter_data(inv, runtime)
+            data = parse_inverter_data(inv, runtime, history)
+            save_history(history)
             write_atomic_json(args.output, data)
             print(json.dumps(data, indent=2))
         asyncio.run(once())
