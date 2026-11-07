@@ -129,6 +129,8 @@ def update_history(history, today_str, time_str, ppv, pgrid, house_load, battery
         if len(samples) > 1440:
             samples.pop(0)
 
+    return should_add
+
 
 def parse_inverter_data(inv, runtime, history):
     """Normalize raw sensor dictionary into a clean, UI-ready payload."""
@@ -209,25 +211,7 @@ def parse_inverter_data(inv, runtime, history):
     time_str = time.strftime("%H:%M", now_t)
 
     # Update history tracking (stores signed grid_w and signed bat_w)
-    update_history(history, today_str, time_str, ppv, signed_grid_w, house_consumption, battery_soc, signed_battery_power_w, e_day, e_day_exp, e_load_day)
-
-    # Downsampled time series for QML graph
-    today_samples = history.get("today_samples", [])
-    pv_history = [s.get("pv_w", 0) for s in today_samples]
-    load_history = [s.get("load_w", 0) for s in today_samples]
-    grid_history = [s.get("grid_w", 0) for s in today_samples]
-    soc_history = [s.get("soc", 0) for s in today_samples]
-    bat_history = [s.get("bat_w", 0) for s in today_samples]
-    time_labels = [s.get("time", "") for s in today_samples]
-
-    # Last 7 days summary for daily bar chart
-    days_dict = history.get("days", {})
-    recent_days = []
-    for d in sorted(days_dict.keys())[-7:]:
-        item = days_dict[d].copy()
-        item["date"] = d
-        item["day_name"] = time.strftime("%a", time.strptime(d, "%Y-%m-%d"))
-        recent_days.append(item)
+    sample_added = update_history(history, today_str, time_str, ppv, signed_grid_w, house_consumption, battery_soc, signed_battery_power_w, e_day, e_day_exp, e_load_day)
 
     status_data = {
         "online": True,
@@ -284,27 +268,21 @@ def parse_inverter_data(inv, runtime, history):
         "error_codes": int(error_codes),
         "warning_code": int(warning_code),
         "fault_summary": ", ".join(fault_messages) if fault_messages else "System Normal",
-        "fault_messages": fault_messages,
-
-        # Historical trend data for graph rendering
-        "history_pv": pv_history,
-        "history_load": load_history,
-        "history_grid": grid_history,
-        "history_soc": soc_history,
-        "history_battery": bat_history,
-        "history_times": time_labels,
-        "recent_days": recent_days
+        "fault_messages": fault_messages
     }
-    return status_data
+    return status_data, sample_added
 
 
-def write_atomic_json(filepath, data):
+def write_atomic_json(filepath, data, compact=True):
     """Write JSON file atomically to prevent reading half-written files."""
     dest_path = Path(filepath)
     dest_path.parent.mkdir(parents=True, exist_ok=True)
     temp_file = tempfile.NamedTemporaryFile("w", dir=dest_path.parent, delete=False)
     try:
-        json.dump(data, temp_file, indent=2)
+        if compact:
+            json.dump(data, temp_file, separators=(",", ":"))
+        else:
+            json.dump(data, temp_file)
         temp_file.flush()
         os.fsync(temp_file.fileno())
         temp_file.close()
@@ -313,6 +291,29 @@ def write_atomic_json(filepath, data):
         if os.path.exists(temp_file.name):
             os.remove(temp_file.name)
         raise e
+
+
+def export_history_payload(history):
+    """Format history time-series and recent days for the UI."""
+    today_samples = history.get("today_samples", [])
+    days_dict = history.get("days", {})
+    recent_days = []
+    for d in sorted(days_dict.keys())[-7:]:
+        item = days_dict[d].copy()
+        item["date"] = d
+        item["day_name"] = time.strftime("%a", time.strptime(d, "%Y-%m-%d"))
+        recent_days.append(item)
+
+    return {
+        "timestamp": int(time.time()),
+        "history_pv": [s.get("pv_w", 0) for s in today_samples],
+        "history_load": [s.get("load_w", 0) for s in today_samples],
+        "history_grid": [s.get("grid_w", 0) for s in today_samples],
+        "history_soc": [s.get("soc", 0) for s in today_samples],
+        "history_battery": [s.get("bat_w", 0) for s in today_samples],
+        "history_times": [s.get("time", "") for s in today_samples],
+        "recent_days": recent_days
+    }
 
 
 def write_offline_status(dest_path, message="Inverter Unreachable"):
@@ -342,8 +343,9 @@ def write_offline_status(dest_path, message="Inverter Unreachable"):
 async def run_poller(host, port, interval, output_file):
     logger.info(f"Connecting to GoodWe Inverter at {host}:{port}...")
     dest_path = Path(output_file)
+    history_out_path = dest_path.parent / "goodwe_solar_history.json"
     history = load_history()
-    last_hist_save = time.time()
+    last_hist_save = 0.0
 
     while True:
         try:
@@ -353,13 +355,16 @@ async def run_poller(host, port, interval, output_file):
             while True:
                 try:
                     runtime = await asyncio.wait_for(inv.read_runtime_data(), timeout=3.5)
-                    data = parse_inverter_data(inv, runtime, history)
+                    data, sample_added = parse_inverter_data(inv, runtime, history)
+                    # 3s Live status: compact and excludes heavy history arrays
                     write_atomic_json(dest_path, data)
 
-                    # Periodically save history to disk (every 30 seconds)
-                    if time.time() - last_hist_save >= 30:
+                    # Write history arrays only when a sample is added or at 60s cadence
+                    now_cur = time.time()
+                    if sample_added or (now_cur - last_hist_save >= 60):
                         save_history(history)
-                        last_hist_save = time.time()
+                        write_atomic_json(history_out_path, export_history_payload(history))
+                        last_hist_save = now_cur
 
                 except asyncio.TimeoutError:
                     logger.warning("Read runtime data timeout")
@@ -390,9 +395,11 @@ def main():
             history = load_history()
             inv = await goodwe.connect(args.host, port=args.port, timeout=2, retries=2)
             runtime = await inv.read_runtime_data()
-            data = parse_inverter_data(inv, runtime, history)
+            data, sample_added = parse_inverter_data(inv, runtime, history)
             save_history(history)
             write_atomic_json(args.output, data)
+            history_out = Path(args.output).parent / "goodwe_solar_history.json"
+            write_atomic_json(history_out, export_history_payload(history))
             print(json.dumps(data, indent=2))
         asyncio.run(once())
     else:

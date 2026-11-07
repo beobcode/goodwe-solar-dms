@@ -5,6 +5,7 @@ import Quickshell.Io
 import qs.Common
 import qs.Services
 import qs.Widgets
+import qs.DCommon.Widgets
 import qs.Modules.Plugins
 
 DesktopPluginComponent {
@@ -44,6 +45,13 @@ DesktopPluginComponent {
         const home = Quickshell.env("HOME") || "";
         const base = (xdg && xdg.length > 0) ? xdg : (home + "/.cache");
         return base + "/goodwe_solar.json";
+    }
+
+    readonly property string historyFilePath: {
+        const xdg = Quickshell.env("XDG_CACHE_HOME");
+        const home = Quickshell.env("HOME") || "";
+        const base = (xdg && xdg.length > 0) ? xdg : (home + "/.cache");
+        return base + "/goodwe_solar_history.json";
     }
 
     function formatWatts(w) {
@@ -94,10 +102,22 @@ DesktopPluginComponent {
             root.hasFault = data.has_fault ?? false;
             root.faultSummary = data.fault_summary ?? "Normal";
 
-            root.historyPv = data.history_pv ?? [];
-            root.historyLoad = data.history_load ?? [];
+            if (data.history_pv) root.historyPv = data.history_pv;
+            if (data.history_load) root.historyLoad = data.history_load;
         } catch (e) {
             root.isOnline = false;
+        }
+    }
+
+    function parseHistory() {
+        try {
+            const str = historyFileView.text();
+            if (!str || !str.trim()) return;
+            const hData = JSON.parse(str);
+            if (hData.history_pv) root.historyPv = hData.history_pv;
+            if (hData.history_load) root.historyLoad = hData.history_load;
+        } catch (e) {
+            // Ignore parse errors on partial writes
         }
     }
 
@@ -127,6 +147,14 @@ DesktopPluginComponent {
         onFileChanged: cacheFileView.reload()
     }
 
+    FileView {
+        id: historyFileView
+        path: root.historyFilePath
+        watchChanges: true
+        onLoaded: root.parseHistory()
+        onFileChanged: historyFileView.reload()
+    }
+
     // Card background
     Rectangle {
         id: cardBg
@@ -147,7 +175,7 @@ DesktopPluginComponent {
 
                 Row {
                     spacing: Theme.spacingXS
-                    DankIcon {
+                    DIcon {
                         name: root.hasFault ? "error" : "solar_power"
                         size: Theme.iconSizeSmall
                         color: root.hasFault ? Theme.error : (root.isOnline ? Theme.warning : Theme.surfaceVariantText)
@@ -175,7 +203,7 @@ DesktopPluginComponent {
                         id: yieldRow
                         anchors.centerIn: parent
                         spacing: Theme.spacingXXS
-                        DankIcon {
+                        DIcon {
                             name: "wb_sunny"
                             size: Theme.iconSizeSmall - Theme.spacingXXS
                             color: Theme.warning
@@ -198,7 +226,7 @@ DesktopPluginComponent {
                     radius: Theme.cornerRadius / 2
                     color: desktopPortalMouse.containsMouse ? Theme.surfaceContainerHighest : "transparent"
 
-                    DankIcon {
+                    DIcon {
                         name: "open_in_new"
                         size: Theme.iconSizeSmall - Theme.spacingXXS
                         color: desktopPortalMouse.containsMouse ? Theme.primary : Theme.surfaceVariantText
@@ -240,7 +268,7 @@ DesktopPluginComponent {
                 // Battery Badge
                 Row {
                     spacing: Theme.spacingXS
-                    DankIcon {
+                    DIcon {
                         name: root.getBatteryIcon(root.batterySoc, root.batteryChargeW > 0)
                         size: Theme.iconSizeSmall
                         color: root.batteryChargeW > 0 ? Theme.success : (root.batteryDischargeW > 0 ? Theme.info : Theme.surfaceVariantText)
@@ -305,7 +333,7 @@ DesktopPluginComponent {
                         ctx.moveTo(0, height);
                         for (let i = 0; i < n; i++) {
                             const px = i * stepX;
-                            const py = height - (pvData[i] / maxVal) * (height - 4);
+                            const py = height - (pvData[i] / maxVal) * (height - Theme.spacingXS);
                             ctx.lineTo(px, py);
                         }
                         ctx.lineTo(width, height);
@@ -318,7 +346,7 @@ DesktopPluginComponent {
                         ctx.beginPath();
                         for (let i = 0; i < n; i++) {
                             const px = i * stepX;
-                            const py = height - (pvData[i] / maxVal) * (height - 4);
+                            const py = height - (pvData[i] / maxVal) * (height - Theme.spacingXS);
                             i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
                         }
                         ctx.stroke();

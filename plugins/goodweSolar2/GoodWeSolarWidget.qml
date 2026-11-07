@@ -78,6 +78,13 @@ PluginComponent {
         return base + "/goodwe_solar.json";
     }
 
+    readonly property string historyFilePath: {
+        const xdg = Quickshell.env("XDG_CACHE_HOME");
+        const home = Quickshell.env("HOME") || "";
+        const base = (xdg && xdg.length > 0) ? xdg : (home + "/.cache");
+        return base + "/goodwe_solar_history.json";
+    }
+
     // Formatting helpers
     function formatWatts(w) {
         const absW = Math.abs(w);
@@ -114,6 +121,7 @@ PluginComponent {
 
     onCcWidgetToggled: {
         cacheFileView.reload();
+        historyFileView.reload();
         ToastService.showInfo("GoodWe Solar", "Refreshing telemetry...");
     }
 
@@ -174,14 +182,31 @@ PluginComponent {
             root.faultSummary = data.fault_summary ?? "System Normal";
             root.faultMessages = data.fault_messages ?? [];
 
-            root.historyPv = data.history_pv ?? [];
-            root.historyLoad = data.history_load ?? [];
-            root.historyGrid = data.history_grid ?? [];
-            root.historySoc = data.history_soc ?? [];
-            root.historyBattery = data.history_battery ?? [];
-            root.recentDays = data.recent_days ?? [];
+            // If history data is present in live snapshot (e.g. from older poller), keep backwards compatibility
+            if (data.history_pv) root.historyPv = data.history_pv;
+            if (data.history_load) root.historyLoad = data.history_load;
+            if (data.history_grid) root.historyGrid = data.history_grid;
+            if (data.history_soc) root.historySoc = data.history_soc;
+            if (data.history_battery) root.historyBattery = data.history_battery;
+            if (data.recent_days) root.recentDays = data.recent_days;
         } catch (e) {
             root.isOnline = false;
+        }
+    }
+
+    function parseHistory() {
+        try {
+            const str = historyFileView.text();
+            if (!str || !str.trim()) return;
+            const hData = JSON.parse(str);
+            if (hData.history_pv) root.historyPv = hData.history_pv;
+            if (hData.history_load) root.historyLoad = hData.history_load;
+            if (hData.history_grid) root.historyGrid = hData.history_grid;
+            if (hData.history_soc) root.historySoc = hData.history_soc;
+            if (hData.history_battery) root.historyBattery = hData.history_battery;
+            if (hData.recent_days) root.recentDays = hData.recent_days;
+        } catch (e) {
+            // Ignore parse errors on partial writes
         }
     }
 
@@ -204,13 +229,22 @@ PluginComponent {
         onTriggered: root.checkStaleness()
     }
 
-    // Reactively watch cache file changes without continuous polling
+    // Reactively watch 3s live cache file changes without continuous polling
     FileView {
         id: cacheFileView
         path: root.cacheFilePath
         watchChanges: true
         onLoaded: root.parseTelemetry()
         onFileChanged: cacheFileView.reload()
+    }
+
+    // Reactively watch 60s history cache file changes
+    FileView {
+        id: historyFileView
+        path: root.historyFilePath
+        watchChanges: true
+        onLoaded: root.parseHistory()
+        onFileChanged: historyFileView.reload()
     }
 
     layerNamespacePlugin: "goodwe-solar"
@@ -228,7 +262,7 @@ PluginComponent {
                 anchors.verticalCenter: parent.verticalCenter
 
                 // Solar Icon & Value
-                DankIcon {
+                DIcon {
                     name: root.hasFault ? "error" : "solar_power"
                     color: {
                         if (root.hasFault) return Theme.error;
@@ -262,7 +296,7 @@ PluginComponent {
                     visible: root.showBatteryInBar && root.isOnline
                     anchors.verticalCenter: parent.verticalCenter
 
-                    DankIcon {
+                    DIcon {
                         name: root.getBatteryIcon(root.batterySoc, root.batteryChargeW > 0)
                         color: {
                             if (root.batteryChargeW > 0) return Theme.success;
@@ -296,7 +330,7 @@ PluginComponent {
                 spacing: Theme.spacingXS
                 anchors.centerIn: parent
 
-                DankIcon {
+                DIcon {
                     name: root.hasFault ? "error" : "solar_power"
                     color: root.hasFault ? Theme.error : Theme.warning
                     size: Theme.iconSizeSmall
@@ -331,7 +365,7 @@ PluginComponent {
                     width: parent.width
                     spacing: Theme.spacingS
 
-                    DankIcon {
+                    DIcon {
                         name: root.hasFault ? "error" : (root.isOnline ? "check_circle" : "cloud_off")
                         color: root.hasFault ? Theme.error : (root.isOnline ? Theme.success : Theme.surfaceVariantText)
                         size: Theme.iconSize
@@ -384,7 +418,7 @@ PluginComponent {
                         Row {
                             anchors.centerIn: parent
                             spacing: Theme.spacingS
-                            DankIcon {
+                            DIcon {
                                 name: "solar_power"
                                 color: Theme.warning
                                 size: Theme.iconSize
@@ -417,7 +451,7 @@ PluginComponent {
                         Row {
                             anchors.centerIn: parent
                             spacing: Theme.spacingS
-                            DankIcon {
+                            DIcon {
                                 name: root.getBatteryIcon(root.batterySoc, root.batteryChargeW > 0)
                                 color: root.batteryChargeW > 0 ? Theme.success : (root.batteryDischargeW > 0 ? Theme.info : Theme.surfaceVariantText)
                                 size: Theme.iconSize
@@ -450,7 +484,7 @@ PluginComponent {
                         Row {
                             anchors.centerIn: parent
                             spacing: Theme.spacingS
-                            DankIcon {
+                            DIcon {
                                 name: "home"
                                 color: Theme.secondary
                                 size: Theme.iconSize
@@ -483,7 +517,7 @@ PluginComponent {
                         Row {
                             anchors.centerIn: parent
                             spacing: Theme.spacingS
-                            DankIcon {
+                            DIcon {
                                 name: "electric_bolt"
                                 color: root.gridPowerW > 0 ? Theme.success : (root.gridPowerW < 0 ? Theme.error : Theme.surfaceVariantText)
                                 size: Theme.iconSize
@@ -656,7 +690,7 @@ PluginComponent {
                             Row {
                                 spacing: Theme.spacingXS
                                 anchors.horizontalCenter: parent.horizontalCenter
-                                DankIcon {
+                                DIcon {
                                     name: "solar_power"
                                     color: Theme.warning
                                     size: Theme.iconSizeSmall
@@ -698,7 +732,7 @@ PluginComponent {
                             Row {
                                 spacing: Theme.spacingXS
                                 anchors.horizontalCenter: parent.horizontalCenter
-                                DankIcon {
+                                DIcon {
                                     name: root.getBatteryIcon(root.batterySoc, root.batteryChargeW > 0)
                                     color: root.batteryChargeW > 0 ? Theme.success : (root.batteryDischargeW > 0 ? Theme.info : Theme.surfaceVariantText)
                                     size: Theme.iconSizeSmall
@@ -740,7 +774,7 @@ PluginComponent {
                             Row {
                                 spacing: Theme.spacingXS
                                 anchors.horizontalCenter: parent.horizontalCenter
-                                DankIcon {
+                                DIcon {
                                     name: "home"
                                     color: Theme.secondary
                                     size: Theme.iconSizeSmall
@@ -782,7 +816,7 @@ PluginComponent {
                             Row {
                                 spacing: Theme.spacingXS
                                 anchors.horizontalCenter: parent.horizontalCenter
-                                DankIcon {
+                                DIcon {
                                     name: "electric_bolt"
                                     color: root.gridPowerW > 0 ? Theme.success : (root.gridPowerW < 0 ? Theme.error : Theme.surfaceVariantText)
                                     size: Theme.iconSizeSmall
@@ -949,7 +983,7 @@ PluginComponent {
                                     ctx.fillStyle = Qt.rgba(Theme.surfaceText.r, Theme.surfaceText.g, Theme.surfaceText.b, 0.5);
                                     ctx.font = `${Theme.fontSizeXSmall}px ${Theme.fontFamily || "sans-serif"}`;
                                     ctx.textAlign = "left";
-                                    ctx.fillText("0 W", padLeft + 2, yZero - 2);
+                                    ctx.fillText("0 W", padLeft + Theme.spacingXXS, yZero - Theme.spacingXXS);
                                 }
 
                                 // 1. Draw Solar PV Area Gradient & Line
@@ -1018,9 +1052,9 @@ PluginComponent {
                                     ctx.fillStyle = Qt.rgba(Theme.success.r, Theme.success.g, Theme.success.b, 0.85);
                                     ctx.font = `${Theme.fontSizeXSmall}px ${Theme.fontFamily || "sans-serif"}`;
                                     ctx.textAlign = "left";
-                                    ctx.fillText("100%", padLeft + chartW + 4, padTop + 8);
-                                    ctx.fillText("50%", padLeft + chartW + 4, padTop + (chartH / 2) + 3);
-                                    ctx.fillText("0%", padLeft + chartW + 4, padTop + chartH);
+                                    ctx.fillText("100%", padLeft + chartW + Theme.spacingXS, padTop + Theme.spacingS);
+                                    ctx.fillText("50%", padLeft + chartW + Theme.spacingXS, padTop + (chartH / 2) + Theme.spacingXXS);
+                                    ctx.fillText("0%", padLeft + chartW + Theme.spacingXS, padTop + chartH);
 
                                     // SoC curve
                                     ctx.strokeStyle = Theme.success;
