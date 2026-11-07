@@ -324,16 +324,16 @@ DesktopPluginComponent {
                     Layout.fillWidth: true
                     spacing: 1
                     StyledText {
-                        text: root.gridExportW > 0 ? "Grid Export" : "Grid Import"
+                        text: root.gridPowerW > 0 ? "Grid (Export)" : (root.gridPowerW < 0 ? "Grid (Import)" : "Grid Flow")
                         font.pixelSize: Theme.fontSizeSmall - 2
                         color: Theme.surfaceVariantText
                         anchors.horizontalCenter: parent.horizontalCenter
                     }
                     StyledText {
-                        text: root.formatWatts(root.gridExportW > 0 ? root.gridExportW : root.gridImportW)
+                        text: root.gridPowerW > 0 ? `+${root.formatWatts(root.gridPowerW)}` : (root.gridPowerW < 0 ? `-${root.formatWatts(root.gridPowerW)}` : "0 W")
                         font.pixelSize: Theme.fontSizeSmall
                         font.weight: Font.Bold
-                        color: root.gridExportW > 0 ? "#10b981" : Theme.surfaceText
+                        color: root.gridPowerW > 0 ? "#10b981" : (root.gridPowerW < 0 ? "#ef4444" : Theme.surfaceText)
                         anchors.horizontalCenter: parent.horizontalCenter
                     }
                 }

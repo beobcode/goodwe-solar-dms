@@ -59,6 +59,9 @@ PluginComponent {
     // Historical graphs data
     property var historyPv: []
     property var historyLoad: []
+    property var historyGrid: []
+    property var historySoc: []
+    property var historyBattery: []
     property var recentDays: []
 
     // Configuration / settings
@@ -177,6 +180,9 @@ PluginComponent {
 
                     root.historyPv = data.history_pv ?? [];
                     root.historyLoad = data.history_load ?? [];
+                    root.historyGrid = data.history_grid ?? [];
+                    root.historySoc = data.history_soc ?? [];
+                    root.historyBattery = data.history_battery ?? [];
                     root.recentDays = data.recent_days ?? [];
                 } catch (e) {
                 }
@@ -433,22 +439,22 @@ PluginComponent {
                             spacing: Theme.spacingS
                             DankIcon {
                                 name: "electric_bolt"
-                                color: root.gridExportW > 0 ? "#10b981" : (root.gridImportW > 0 ? "#ef4444" : Theme.surfaceVariantText)
+                                color: root.gridPowerW > 0 ? "#10b981" : (root.gridPowerW < 0 ? "#ef4444" : Theme.surfaceVariantText)
                                 size: Theme.iconSize
                                 anchors.verticalCenter: parent.verticalCenter
                             }
                             Column {
                                 anchors.verticalCenter: parent.verticalCenter
                                 StyledText {
-                                    text: root.gridExportW > 0 ? "Grid Export" : "Grid Import"
+                                    text: root.gridPowerW > 0 ? "Grid (Export)" : (root.gridPowerW < 0 ? "Grid (Import)" : "Grid Flow")
                                     font.pixelSize: Theme.fontSizeSmall
                                     color: Theme.surfaceVariantText
                                 }
                                 StyledText {
-                                    text: root.formatWatts(root.gridExportW > 0 ? root.gridExportW : root.gridImportW)
+                                    text: root.gridPowerW > 0 ? `+${root.formatWatts(root.gridPowerW)}` : (root.gridPowerW < 0 ? `-${root.formatWatts(root.gridPowerW)}` : "0 W")
                                     font.pixelSize: Theme.fontSizeMedium
                                     font.weight: Font.Bold
-                                    color: Theme.surfaceText
+                                    color: root.gridPowerW > 0 ? "#10b981" : (root.gridPowerW < 0 ? "#ef4444" : Theme.surfaceText)
                                 }
                             }
                         }
@@ -542,9 +548,9 @@ PluginComponent {
     }
 
     // 4. Centered Dash / Popout Dialog
-    // Sized generously (680x480) with real-time curves & daily bar chart
-    popoutWidth: 680
-    popoutHeight: 480
+    // Sized generously (720x520) with real-time curves & daily bar chart
+    popoutWidth: 720
+    popoutHeight: 520
 
     popoutContent: Component {
         PopoutComponent {
@@ -703,22 +709,22 @@ PluginComponent {
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 DankIcon {
                                     name: "electric_bolt"
-                                    color: root.gridExportW > 0 ? "#10b981" : (root.gridImportW > 0 ? "#ef4444" : Theme.surfaceVariantText)
+                                    color: root.gridPowerW > 0 ? "#10b981" : (root.gridPowerW < 0 ? "#ef4444" : Theme.surfaceVariantText)
                                     size: Theme.iconSize - 6
                                     anchors.verticalCenter: parent.verticalCenter
                                 }
                                 StyledText {
-                                    text: root.gridExportW > 0 ? "Grid Export" : "Grid Import"
+                                    text: root.gridPowerW > 0 ? "Grid (Export)" : (root.gridPowerW < 0 ? "Grid (Import)" : "Grid Flow")
                                     font.pixelSize: Theme.fontSizeSmall
                                     color: Theme.surfaceVariantText
                                     anchors.verticalCenter: parent.verticalCenter
                                 }
                             }
                             StyledText {
-                                text: root.formatWatts(root.gridExportW > 0 ? root.gridExportW : root.gridImportW)
+                                text: root.gridPowerW > 0 ? `+${root.formatWatts(root.gridPowerW)}` : (root.gridPowerW < 0 ? `-${root.formatWatts(root.gridPowerW)}` : "0 W")
                                 font.pixelSize: Theme.fontSizeLarge
                                 font.weight: Font.Bold
-                                color: root.gridExportW > 0 ? "#10b981" : (root.gridImportW > 0 ? "#ef4444" : Theme.surfaceText)
+                                color: root.gridPowerW > 0 ? "#10b981" : (root.gridPowerW < 0 ? "#ef4444" : Theme.surfaceText)
                                 anchors.horizontalCenter: parent.horizontalCenter
                             }
                             StyledText {
@@ -734,7 +740,7 @@ PluginComponent {
                 // Intra-day Solar Generation Graph
                 Rectangle {
                     width: parent.width
-                    height: 180
+                    height: 200
                     radius: Theme.cornerRadius
                     color: Theme.surfaceContainerHighest
 
@@ -746,23 +752,33 @@ PluginComponent {
                         Row {
                             width: parent.width
                             StyledText {
-                                text: "Generation & Load Over Time"
+                                text: "Solar, Load, Grid & Battery %"
                                 font.pixelSize: Theme.fontSizeMedium
                                 font.weight: Font.Bold
                                 color: Theme.surfaceText
                             }
                             Item { Layout.fillWidth: true; width: 10 }
                             Row {
-                                spacing: Theme.spacingM
+                                spacing: Theme.spacingS
                                 Row {
-                                    spacing: 4
-                                    Rectangle { width: 10; height: 10; radius: 5; color: "#f59e0b"; anchors.verticalCenter: parent.verticalCenter }
-                                    StyledText { text: "Solar PV (W)"; font.pixelSize: Theme.fontSizeSmall - 2; color: Theme.surfaceVariantText }
+                                    spacing: 3
+                                    Rectangle { width: 8; height: 8; radius: 4; color: "#f59e0b"; anchors.verticalCenter: parent.verticalCenter }
+                                    StyledText { text: "PV (W)"; font.pixelSize: Theme.fontSizeSmall - 3; color: Theme.surfaceVariantText }
                                 }
                                 Row {
-                                    spacing: 4
-                                    Rectangle { width: 10; height: 10; radius: 5; color: "#8b5cf6"; anchors.verticalCenter: parent.verticalCenter }
-                                    StyledText { text: "House Load (W)"; font.pixelSize: Theme.fontSizeSmall - 2; color: Theme.surfaceVariantText }
+                                    spacing: 3
+                                    Rectangle { width: 8; height: 8; radius: 4; color: "#8b5cf6"; anchors.verticalCenter: parent.verticalCenter }
+                                    StyledText { text: "Load (W)"; font.pixelSize: Theme.fontSizeSmall - 3; color: Theme.surfaceVariantText }
+                                }
+                                Row {
+                                    spacing: 3
+                                    Rectangle { width: 8; height: 8; radius: 4; color: "#0284c7"; anchors.verticalCenter: parent.verticalCenter }
+                                    StyledText { text: "Grid (+/-)"; font.pixelSize: Theme.fontSizeSmall - 3; color: Theme.surfaceVariantText }
+                                }
+                                Row {
+                                    spacing: 3
+                                    Rectangle { width: 8; height: 8; radius: 4; color: "#10b981"; anchors.verticalCenter: parent.verticalCenter }
+                                    StyledText { text: "Bat (%)"; font.pixelSize: Theme.fontSizeSmall - 3; color: "#10b981" }
                                 }
                             }
                         }
@@ -776,9 +792,15 @@ PluginComponent {
 
                             property var pvData: root.historyPv
                             property var loadData: root.historyLoad
+                            property var gridData: root.historyGrid
+                            property var socData: root.historySoc
+                            property var batData: root.historyBattery
 
                             onPvDataChanged: requestPaint()
                             onLoadDataChanged: requestPaint()
+                            onGridDataChanged: requestPaint()
+                            onSocDataChanged: requestPaint()
+                            onBatDataChanged: requestPaint()
                             onWidthChanged: requestPaint()
                             onHeightChanged: requestPaint()
 
@@ -788,7 +810,6 @@ PluginComponent {
                                 ctx.clearRect(0, 0, width, height);
 
                                 if (!pvData || pvData.length < 2) {
-                                    // Fallback text if history has just started collecting
                                     ctx.fillStyle = Qt.rgba(1, 1, 1, 0.4);
                                     ctx.font = "12px sans-serif";
                                     ctx.textAlign = "center";
@@ -796,58 +817,146 @@ PluginComponent {
                                     return;
                                 }
 
-                                // Compute peak max value for Y-axis scale
-                                let maxVal = 1000;
-                                for (let i = 0; i < pvData.length; i++) maxVal = Math.max(maxVal, pvData[i]);
-                                if (loadData) {
-                                    for (let j = 0; j < loadData.length; j++) maxVal = Math.max(maxVal, loadData[j]);
-                                }
-                                maxVal *= 1.15;
-
                                 const n = pvData.length;
-                                const stepX = width / (n - 1);
+                                const padLeft = 4;
+                                const padRight = 36; // leave margin for battery SoC right Y-axis
+                                const padTop = 10;
+                                const padBottom = 16;
+                                const chartW = width - padLeft - padRight;
+                                const chartH = height - padTop - padBottom;
+                                const stepX = chartW / Math.max(1, n - 1);
 
-                                // 1. Draw Solar PV Area Gradient
-                                const gradPv = ctx.createLinearGradient(0, 0, 0, height);
+                                // Find max and min power across all series (Watts)
+                                let maxVal = 1000;
+                                let minVal = 0;
+
+                                for (let i = 0; i < n; i++) {
+                                    maxVal = Math.max(maxVal, pvData[i] || 0);
+                                    if (loadData && loadData.length > i) maxVal = Math.max(maxVal, loadData[i] || 0);
+                                    if (gridData && gridData.length > i) {
+                                        maxVal = Math.max(maxVal, gridData[i] || 0);
+                                        minVal = Math.min(minVal, gridData[i] || 0);
+                                    }
+                                    if (batData && batData.length > i) {
+                                        maxVal = Math.max(maxVal, batData[i] || 0);
+                                        minVal = Math.min(minVal, batData[i] || 0);
+                                    }
+                                }
+
+                                // Pad power range
+                                maxVal = Math.ceil(maxVal * 1.1 / 500) * 500;
+                                if (minVal < 0) {
+                                    minVal = Math.floor(minVal * 1.1 / 500) * 500;
+                                } else {
+                                    minVal = 0;
+                                }
+                                const rangeVal = Math.max(1, maxVal - minVal);
+
+                                function getY(val) {
+                                    const norm = (val - minVal) / rangeVal;
+                                    return padTop + chartH - (norm * chartH);
+                                }
+
+                                // Draw Zero Baseline if minVal < 0
+                                if (minVal < 0) {
+                                    const yZero = getY(0);
+                                    ctx.strokeStyle = Qt.rgba(1, 1, 1, 0.2);
+                                    ctx.lineWidth = 1;
+                                    ctx.setLineDash([2, 4]);
+                                    ctx.beginPath();
+                                    ctx.moveTo(padLeft, yZero);
+                                    ctx.lineTo(padLeft + chartW, yZero);
+                                    ctx.stroke();
+                                    ctx.setLineDash([]);
+
+                                    ctx.fillStyle = Qt.rgba(1, 1, 1, 0.4);
+                                    ctx.font = "9px sans-serif";
+                                    ctx.textAlign = "left";
+                                    ctx.fillText("0 W", padLeft + 2, yZero - 2);
+                                }
+
+                                // 1. Draw Solar PV Area Gradient & Line
+                                const gradPv = ctx.createLinearGradient(0, padTop, 0, padTop + chartH);
                                 gradPv.addColorStop(0, Qt.rgba(0.96, 0.62, 0.04, 0.35));
                                 gradPv.addColorStop(1, Qt.rgba(0.96, 0.62, 0.04, 0.02));
 
                                 ctx.fillStyle = gradPv;
                                 ctx.beginPath();
-                                ctx.moveTo(0, height);
+                                ctx.moveTo(padLeft, getY(0));
                                 for (let i = 0; i < n; i++) {
-                                    const px = i * stepX;
-                                    const py = height - (pvData[i] / maxVal) * (height - 10);
+                                    const px = padLeft + (i * stepX);
+                                    const py = getY(pvData[i] || 0);
                                     ctx.lineTo(px, py);
                                 }
-                                ctx.lineTo(width, height);
+                                ctx.lineTo(padLeft + chartW, getY(0));
                                 ctx.closePath();
                                 ctx.fill();
 
-                                // 2. Draw Solar PV Line
                                 ctx.strokeStyle = "#f59e0b";
                                 ctx.lineWidth = 2.0;
                                 ctx.beginPath();
                                 for (let i = 0; i < n; i++) {
-                                    const px = i * stepX;
-                                    const py = height - (pvData[i] / maxVal) * (height - 10);
+                                    const px = padLeft + (i * stepX);
+                                    const py = getY(pvData[i] || 0);
                                     i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
                                 }
                                 ctx.stroke();
 
-                                // 3. Draw House Load Line
+                                // 2. Draw House Load Line (Purple)
                                 if (loadData && loadData.length === n) {
                                     ctx.strokeStyle = "#8b5cf6";
-                                    ctx.lineWidth = 1.5;
+                                    ctx.lineWidth = 1.6;
                                     ctx.setLineDash([3, 3]);
                                     ctx.beginPath();
                                     for (let j = 0; j < n; j++) {
-                                        const px = j * stepX;
-                                        const py = height - (loadData[j] / maxVal) * (height - 10);
+                                        const px = padLeft + (j * stepX);
+                                        const py = getY(loadData[j] || 0);
                                         j === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
                                     }
                                     ctx.stroke();
                                     ctx.setLineDash([]);
+                                }
+
+                                // 3. Draw Grid Power Line (Sky Blue #0284c7)
+                                // Positive = Exporting to grid; Negative = Importing from grid
+                                if (gridData && gridData.length === n) {
+                                    ctx.strokeStyle = "#0284c7";
+                                    ctx.lineWidth = 1.6;
+                                    ctx.beginPath();
+                                    for (let k = 0; k < n; k++) {
+                                        const px = padLeft + (k * stepX);
+                                        const py = getY(gridData[k] || 0);
+                                        k === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+                                    }
+                                    ctx.stroke();
+                                }
+
+                                // 4. Draw Battery SoC % Line & Right Y-Axis (Emerald #10b981)
+                                // Scaled 0 to 100% on the right margin
+                                if (socData && socData.length === n) {
+                                    function getSocY(soc) {
+                                        const clamped = Math.max(0, Math.min(100, soc));
+                                        return padTop + chartH - ((clamped / 100.0) * chartH);
+                                    }
+
+                                    // Right Y-axis labels: 100%, 50%, 0%
+                                    ctx.fillStyle = Qt.rgba(0.06, 0.72, 0.50, 0.8);
+                                    ctx.font = "9px sans-serif";
+                                    ctx.textAlign = "left";
+                                    ctx.fillText("100%", padLeft + chartW + 4, padTop + 8);
+                                    ctx.fillText("50%", padLeft + chartW + 4, padTop + (chartH / 2) + 3);
+                                    ctx.fillText("0%", padLeft + chartW + 4, padTop + chartH);
+
+                                    // SoC curve
+                                    ctx.strokeStyle = "#10b981";
+                                    ctx.lineWidth = 1.8;
+                                    ctx.beginPath();
+                                    for (let m = 0; m < n; m++) {
+                                        const px = padLeft + (m * stepX);
+                                        const py = getSocY(socData[m] || 0);
+                                        m === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+                                    }
+                                    ctx.stroke();
                                 }
                             }
                         }

@@ -73,7 +73,7 @@ def save_history(history):
         logger.warning(f"Could not save history: {e}")
 
 
-def update_history(history, today_str, time_str, ppv, pgrid, house_load, battery_soc, e_day, e_day_exp, e_load_day):
+def update_history(history, today_str, time_str, ppv, pgrid, house_load, battery_soc, battery_power, e_day, e_day_exp, e_load_day):
     """Record day totals and downsampled intra-day time points."""
     # 1. Update today's record
     days = history.setdefault("days", {})
@@ -118,6 +118,7 @@ def update_history(history, today_str, time_str, ppv, pgrid, house_load, battery
             "pv_w": int(ppv),
             "load_w": int(house_load),
             "grid_w": int(pgrid),
+            "bat_w": int(battery_power),
             "soc": int(battery_soc)
         })
         # Keep maximum 1440 points (24 hours at 1/min)
@@ -132,9 +133,15 @@ def parse_inverter_data(inv, runtime, history):
     ppv2 = clean_val(runtime.get("ppv2"), 0)
 
     # Battery metrics
+    # In GoodWe Modbus: pbattery1 is negative when charging, positive when discharging.
+    # User requirement: + means charging, - means discharging.
+    raw_pbattery = clean_val(runtime.get("pbattery1"), 0)
+    bat_charge_w = int(abs(raw_pbattery)) if raw_pbattery < 0 else 0
+    bat_discharge_w = int(raw_pbattery) if raw_pbattery > 0 else 0
+    signed_battery_power_w = bat_charge_w if bat_charge_w > 0 else (-bat_discharge_w)
+
     battery_soc = clean_val(runtime.get("battery_soc"), 0)
     battery_soh = clean_val(runtime.get("battery_soh"), 100)
-    pbattery = clean_val(runtime.get("pbattery1"), 0)  # negative = charging, positive = discharging
     battery_mode_code = clean_val(runtime.get("battery_mode"), 0)
     battery_mode_label = str(runtime.get("battery_mode_label") or "Idle").strip()
     battery_temp = clean_val(runtime.get("battery_temperature"), 0.0)
@@ -142,7 +149,17 @@ def parse_inverter_data(inv, runtime, history):
     ibattery = clean_val(runtime.get("ibattery1"), 0.0)
 
     # Grid metrics
-    pgrid = clean_val(runtime.get("pgrid") or runtime.get("active_power") or runtime.get("active_power_total"), 0)
+    # User requirement: + means sending to grid (export), - means buying from grid (import)
+    active_power = clean_val(runtime.get("active_power"), None)
+    if active_power is not None:
+        signed_grid_w = int(active_power)
+    else:
+        raw_pgrid = clean_val(runtime.get("pgrid"), 0)
+        signed_grid_w = int(raw_pgrid)
+
+    grid_export_w = signed_grid_w if signed_grid_w > 0 else 0
+    grid_import_w = abs(signed_grid_w) if signed_grid_w < 0 else 0
+
     grid_mode_label = str(runtime.get("grid_mode_label") or "Connected to grid").strip()
     vgrid = clean_val(runtime.get("vgrid"), 0.0)
     fgrid = clean_val(runtime.get("fgrid"), 50.0)
@@ -188,15 +205,17 @@ def parse_inverter_data(inv, runtime, history):
     today_str = time.strftime("%Y-%m-%d", now_t)
     time_str = time.strftime("%H:%M", now_t)
 
-    # Update history tracking
-    update_history(history, today_str, time_str, ppv, pgrid, house_consumption, battery_soc, e_day, e_day_exp, e_load_day)
+    # Update history tracking (stores signed grid_w and signed bat_w)
+    update_history(history, today_str, time_str, ppv, signed_grid_w, house_consumption, battery_soc, signed_battery_power_w, e_day, e_day_exp, e_load_day)
 
     # Downsampled time series for QML graph
-    # Extract recent samples (last 60-120 minutes or full day)
     today_samples = history.get("today_samples", [])
-    pv_history = [s["pv_w"] for s in today_samples]
-    load_history = [s["load_w"] for s in today_samples]
-    time_labels = [s["time"] for s in today_samples]
+    pv_history = [s.get("pv_w", 0) for s in today_samples]
+    load_history = [s.get("load_w", 0) for s in today_samples]
+    grid_history = [s.get("grid_w", 0) for s in today_samples]
+    soc_history = [s.get("soc", 0) for s in today_samples]
+    bat_history = [s.get("bat_w", 0) for s in today_samples]
+    time_labels = [s.get("time", "") for s in today_samples]
 
     # Last 7 days summary for daily bar chart
     days_dict = history.get("days", {})
@@ -217,16 +236,17 @@ def parse_inverter_data(inv, runtime, history):
         "work_mode": work_mode_label,
 
         # Power flows (Watts)
+        # Sign convention: + means charging / sending to grid; - means discharging / buying from grid
         "pv_power_w": int(ppv),
         "pv1_power_w": int(ppv1),
         "pv2_power_w": int(ppv2),
-        "battery_power_w": int(pbattery),
-        "battery_charge_w": int(abs(pbattery)) if pbattery < 0 else 0,
-        "battery_discharge_w": int(pbattery) if pbattery > 0 else 0,
+        "battery_power_w": signed_battery_power_w,
+        "battery_charge_w": bat_charge_w,
+        "battery_discharge_w": bat_discharge_w,
         "house_consumption_w": int(house_consumption),
-        "grid_power_w": int(pgrid),
-        "grid_export_w": int(pgrid) if pgrid > 0 else 0,
-        "grid_import_w": int(abs(pgrid)) if pgrid < 0 else 0,
+        "grid_power_w": signed_grid_w,
+        "grid_export_w": grid_export_w,
+        "grid_import_w": grid_import_w,
         "backup_power_w": int(backup_ptotal),
 
         # Battery details
@@ -266,6 +286,9 @@ def parse_inverter_data(inv, runtime, history):
         # Historical trend data for graph rendering
         "history_pv": pv_history,
         "history_load": load_history,
+        "history_grid": grid_history,
+        "history_soc": soc_history,
+        "history_battery": bat_history,
         "history_times": time_labels,
         "recent_days": recent_days
     }
