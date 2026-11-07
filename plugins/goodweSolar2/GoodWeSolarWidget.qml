@@ -126,7 +126,7 @@ PluginComponent {
     // Read cache file written by local poller
     Process {
         id: fetchStatsProcess
-        command: ["cat", "/home/dradic/.cache/goodwe_solar.json"]
+        command: ["sh", "-c", "cat \"${XDG_CACHE_HOME:-$HOME/.cache}/goodwe_solar.json\" 2>/dev/null"]
         running: false
 
         stdout: StdioCollector {

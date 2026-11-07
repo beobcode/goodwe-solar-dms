@@ -28,11 +28,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger("goodwe_poller")
 
-DEFAULT_HOST = "192.168.1.102"
-DEFAULT_PORT = 502
-DEFAULT_INTERVAL = 3.0
-DEFAULT_OUTPUT_FILE = str(Path.home() / ".cache" / "goodwe_solar.json")
-HISTORY_FILE = str(Path.home() / ".cache" / "goodwe_solar_history.json")
+DEFAULT_HOST = os.environ.get("GOODWE_INVERTER_IP", "192.168.1.100")
+DEFAULT_PORT = int(os.environ.get("GOODWE_INVERTER_PORT", "502"))
+DEFAULT_INTERVAL = float(os.environ.get("GOODWE_POLL_INTERVAL", "3.0"))
+DEFAULT_OUTPUT_FILE = os.environ.get("GOODWE_OUTPUT_FILE", str(Path.home() / ".cache" / "goodwe_solar.json"))
+HISTORY_FILE = os.environ.get("GOODWE_HISTORY_FILE", str(Path.home() / ".cache" / "goodwe_solar_history.json"))
 
 
 def clean_val(val, default=0):

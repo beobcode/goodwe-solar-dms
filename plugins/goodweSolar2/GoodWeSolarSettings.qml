@@ -5,7 +5,7 @@ import qs.Modules.Plugins
 
 PluginSettings {
     id: root
-    pluginId: "goodweSolar"
+    pluginId: "goodweSolar2"
 
     StyledText {
         width: parent.width
@@ -27,8 +27,8 @@ PluginSettings {
         settingKey: "inverterHost"
         label: "Inverter IP Address"
         description: "Local IP address of the inverter"
-        placeholder: "192.168.1.102"
-        defaultValue: "192.168.1.102"
+        placeholder: "192.168.1.100"
+        defaultValue: "192.168.1.100"
     }
 
     SelectionSetting {
