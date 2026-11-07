@@ -1,0 +1,459 @@
+# Contributing
+
+## Table of Contents
+
+- [Contributing a Plugin](#contributing-a-plugin)
+- [Contributing a Theme](#contributing-a-theme)
+- [Generative AI](#generative-ai)
+
+## Generative AI
+
+Using an LLM to help write code is fine. Submitting its output unread is not.
+
+- You are responsible for every line you submit. You have read it, tested it, and can explain it in review.
+- Say in the PR when a meaningful part of the code was AI generated.
+- Write PR descriptions, issues, and comments yourself. No AI-written or AI-rewritten text. A few plain sentences in your own words beat a page of generated summary. PRs and issues with AI-written text get closed without review.
+- Do not file issues or leave comments you have not verified yourself. Reports that do not reproduce get closed.
+- PRs that read like unreviewed output, with narrating comments, invented APIs, or style that ignores the file they are in, get closed without review.
+
+---
+
+# Contributing a Plugin
+
+Thank you for contributing to the Dux Shell Plugins registry!
+
+## How to Add Your Plugin
+
+1. **Fork this repository**
+
+2. **Create a new JSON file** in the `plugins/` directory following this naming convention:
+   ```
+   plugins/{github-username}-{plugin-name}.json
+   ```
+   - Use lowercase letters
+   - Separate words with hyphens
+   - Examples: `daniel-42-z-powerusage.json`, `rochacbruno-worldclock.json`
+
+3. **Fill in your plugin information** using the schema below:
+
+```json
+{
+    "id": "pluginId",
+    "name": "PluginName",
+    "capabilities": ["dankbar-widget"],
+    "category": "monitoring",
+    "repo": "https://github.com/yourusername/your-plugin-repo",
+    "path": "optional/path/in/monorepo",
+    "author": "Your Name",
+    "description": "Brief description of what your plugin does",
+    "dependencies": ["dependency1", "dependency2"],
+    "compositors": ["niri", "hyprland"],
+    "distro": ["any"],
+    "screenshot": "https://url/to/screenshot.png"
+}
+```
+
+### Field Descriptions
+
+- **id** (required): Unique identifier in camelCase format (e.g., `worldClock`, `powerUsageMonitor`)
+  - **Must start with a lowercase letter**
+  - **Can only contain letters and digits** (no underscores, hyphens, or spaces)
+  - **Must exactly match the `id` field in your repository's `plugin.json` file**
+- **name** (required): Display name of your plugin (e.g., `World Clock`, `Power Usage Monitor`)
+  - **Must exactly match the `name` field in your repository's `plugin.json` file**
+- **capabilities** (required): Array of capabilities, e.g., `["dankbar-widget"]`
+- **category** (required): One of: `monitoring`, `utilities`, `appearance`, `system`, etc.
+- **repo** (required): Full GitHub URL to your plugin repository
+- **path** (optional): If your plugin is in a monorepo, specify the subdirectory path
+- **author** (required): Your name or GitHub username
+- **description** (required): Clear, concise description of the plugin's purpose
+- **dependencies** (required): Array of dependencies, use `[]` if none
+- **compositors** (required): Supported Wayland compositors: `["niri", "hyprland"]`, etc.
+- **distro** (required): Supported distributions: `["any"]`, `["fedora"]`, `["arch"]`, etc.
+- **screenshot** (required): Direct URL to a screenshot image showing your plugin — see [Previews](#previews) for easy ways to produce a good one
+- **i18n** (optional): `true` once your plugin has been approved for central translation via the DMS POEditor project — see [Plugin Translations](#plugin-translations). Do not set it in your initial submission.
+
+### Previews
+
+Every plugin gets a standardized 960×540 preview card served at `https://api.danklinux.com/previews/{id}`. The card wraps your `screenshot` in a dank-themed frame with the plugin's name, category, and description; if the screenshot URL ever becomes unreachable, a metadata-only card is served instead.
+
+Screenshots of any aspect ratio work well — the card letterboxes them over a blurred backdrop rather than cropping. Capture your plugin in a representative state (popout open, real data visible) on the default dank purple theme where possible.
+
+Show the plugin's interface with enough context to identify it—not the whole desktop. For example, capture its DankBar/Control Center widget, modal, launcher, or settings/result for a background service. Full-screen captures are fine for full-screen plugins.
+
+If you prefer to hand-craft the full card image, there is a web generator at [`https://duxlabs.dev/thumbnail-generator.html`](https://duxlabs.dev/thumbnail-generator.html) that produces cards matching the standard layout (see `docs/PREVIEWS.md` for the exact composition spec).
+
+4. **Validate your plugin locally** before submitting:
+
+   Run the following validation commands to ensure your plugin meets all requirements:
+
+   ```bash
+   # Install dependencies
+   pip install jinja2 requests
+
+   # Validate JSON schema and required fields
+   python3 .github/generate.py --validate
+
+   # Validate links, paths, IDs, and names
+   python3 .github/validate_links.py
+   ```
+
+   These validations check:
+   - Valid JSON syntax (no trailing commas)
+   - All required fields are present
+   - Arrays use proper formatting
+   - URLs are complete and accessible
+   - Screenshot URLs are reachable
+   - Repository URLs are valid
+   - Plugin paths exist (for monorepo plugins)
+   - **`id` field is in camelCase format and matches your repository's `plugin.json`**
+   - **`name` field matches your repository's `plugin.json`**
+
+5. **Submit a Pull Request**
+   - Commit your JSON file
+   - Push to your fork
+   - Create a PR to this repository
+   - Include a brief description of your plugin in the PR
+
+## Guidelines
+
+- Keep descriptions concise and informative
+- Ensure your repository has proper documentation
+- Test that your plugin works with the specified compositors and distros
+- Capture your screenshot in a representative state — with the relevant plugin interface and real data visible — ideally on the default dank purple theme (see [Previews](#previews))
+- **Prefer Built-in DMS Utilities**: Do not declare external dependencies for capabilities that DMS already provides natively. See [Built-in Alternatives](#built-in-alternatives) below.
+- **IMPORTANT**: The `id` and `name` fields in your registry JSON file **must exactly match** the corresponding fields in your plugin repository's `plugin.json` file
+  - For regular plugins: Must match `{repo}/plugin.json`
+  - For monorepo plugins: Must match `{repo}/{path}/plugin.json`
+- **IMPORTANT**: The `id` field must be in camelCase format (starts with lowercase, only letters/digits)
+- **Avoid duplicate plugins**: Do not submit plugins that duplicate existing ones unless the original is unmaintained (maintainer unresponsive to issues/PRs for over 30 days) or yours offers major improvements/better design. Contribute upstream first whenever possible; if submitting a successor, link your upstream issue/PR in the submission
+
+### Built-in Alternatives
+
+To keep plugins lightweight and minimize external package requirements, always prefer DMS built-in CLI commands and QML services over external packages:
+
+#### 1. CLI Replacements (`dms <command>`)
+
+| Purpose | External Package | DMS Built-in CLI | Advantage |
+| :--- | :--- | :--- | :--- |
+| **Clipboard** | `wl-clipboard` (`wl-copy`, `wl-paste`), `xclip` | `dms cl copy <text>`, `dms cl paste` | Works uniformly across compositors, no `wl-clipboard` dependency needed |
+| **Notifications** | `libnotify` (`notify-send`) | `dms notify "<title>" "<message>"` | Integrates with DMS notification center, supports `--file` and action buttons |
+| **Screenshots** | `grim`, `slurp`, `grimblast`, `flameshot` | `dms screenshot [region\|full\|all]` | Native Wayland capture with region selector |
+| **HTTP Downloads** | `curl`, `wget` (basic file/image fetch) | `dms dl <url> -o <path>` | Built-in downloader, avoids requiring `curl` for basic requests |
+| **QR Codes** | `qrencode` | `dms qr "<text>"` | Built-in encoder; supports terminal display or PNG output via stdout |
+| **Trash Management** | `trash-cli` | `dms trash [put\|list\|restore\|empty]` | Conforms to XDG Trash Spec 1.0 safely without shell rm |
+| **Brightness Control**| `brightnessctl` | `dms brightness <percent>` | Direct hardware brightness control |
+| **Display Query** | `wlr-randr`, `xrandr` | `dms randr` | Returns output metadata in structured JSON |
+
+> [!NOTE]
+> `dms open <url|path>` opens the DMS application picker dialog for the user to choose an application; it does not replace `xdg-open` or `gio open` (which launch the default application directly).
+
+#### 2. In-Process QML Services (Avoid Spawning Shells)
+
+When writing QML, prefer native DMS services over spawning shell processes via `Proc.runCommand`:
+
+| Capability | Shell Command to Avoid | QML API to Use |
+| :--- | :--- | :--- |
+| **Audio Volume & Mute** | `pactl`, `wpctl`, `amixer` | `AudioService` (`defaultSink.volume`, `defaultSink.muted`, `setVolume`, `toggleMute`) |
+| **Network & VPN** | `nmcli`, `ip route` | `NetworkService` (`activeVpn`, `vpnConnections`, `toggleVpn`) |
+| **Bluetooth** | `bluetoothctl` | `BluetoothService` (`devices`, `toggleDevice`, `adapterState`) |
+| **Do Not Disturb & Power** | `loginctl`, `systemctl suspend`, `swaylock` | `SessionData.setDoNotDisturb(...)`, `SessionService` |
+| **Output / Display Events**| Polling `niri msg outputs` or `hyprctl monitors` | `NiriService.outputs` or `CompositorService.screens` reactive bindings |
+| **State Persistence** | `sh -c 'printf ... > file'` | `PluginService.loadPluginState()` / `savePluginState()` or `Quickshell.Io.FileView` |
+| **Process Control** | `killall -SIG...`, `pkill` (`psmisc`) | `Quickshell.Io.Process.signal(signum)` on the process instance |
+
+## Plugin Translations
+
+Any plugin can ship its own translations — a `translations/` directory with one JSON file per locale, loaded by DMS automatically. No approval needed, no registry involvement. See the [plugin development docs](https://duxlabs.dev/docs/dms/plugin-development#translations) for the file format and the `I18n.trFor` API.
+
+On top of that, registry plugins can apply to join the central DMS POEditor project — the same one community translators use for DMS itself, currently covering 21 languages. Approved plugins get their strings translated alongside the shell, and finished translations come back to the plugin repo as PRs.
+
+**Before applying:**
+
+- Your plugin is listed in this registry and actively maintained
+- Every user-facing string goes through `I18n.trFor("<your plugin id>", ...)`, with the id as a literal string exactly matching the `id` in your `plugin.json` — the extraction tooling reads call sites, so a variable there means your strings never get picked up
+
+**Applying:**
+
+1. Open a PR setting `"i18n": true` in your plugin's registry JSON. Include a short note: what the plugin does, roughly how many strings
+2. On approval, a maintainer adds your repo to the translation sync. Your English strings get uploaded to POEditor, tagged with your plugin id
+3. As translators finish languages, you get PRs adding `translations/<locale>.json` files to your repo — merge them and the translations ship with your next plugin update
+
+**IMPORTANT**: Once your strings are in POEditor, renaming a term is a delete-plus-add — the old term's translations across every language are discarded. Keep English strings stable.
+
+## Plugin Lifecycle & Moderation
+
+Plugin status tracking, deprecation, and removal policies are managed by registry maintainers according to [MODERATION.md](MODERATION.md).
+
+## Questions?
+
+If you have questions about the contribution process, please open an issue in this repository.
+
+---
+
+# Contributing a Theme
+
+Thank you for contributing a theme to the Dux Shell registry!
+
+## How to Add Your Theme
+
+1. **Fork this repository**
+
+2. **Create a new folder** in the `themes/` directory:
+   ```
+   themes/{theme-name}/theme.json
+   ```
+   - Use lowercase letters and hyphens
+   - Examples: `tokyonight`, `gruvbox-dark`, `catppuccin-mocha`
+
+3. **Create your theme.json** with the following schema:
+
+```json
+{
+  "id": "themeId",
+  "name": "Theme Name",
+  "version": "1.0.0",
+  "author": "Your Name",
+  "description": "Brief description of your theme",
+  "dark": {
+    "primary": "#hex",
+    "primaryText": "#hex",
+    "primaryContainer": "#hex",
+    "secondary": "#hex",
+    "surface": "#hex",
+    "surfaceText": "#hex",
+    "surfaceVariant": "#hex",
+    "surfaceVariantText": "#hex",
+    "surfaceTint": "#hex",
+    "background": "#hex",
+    "backgroundText": "#hex",
+    "outline": "#hex",
+    "surfaceContainerLowest": "#hex",
+    "surfaceContainerLow": "#hex",
+    "surfaceContainer": "#hex",
+    "surfaceContainerHigh": "#hex",
+    "error": "#hex",
+    "warning": "#hex",
+    "info": "#hex"
+  },
+  "light": {
+    "primary": "#hex",
+    "primaryText": "#hex",
+    "primaryContainer": "#hex",
+    "secondary": "#hex",
+    "surface": "#hex",
+    "surfaceText": "#hex",
+    "surfaceVariant": "#hex",
+    "surfaceVariantText": "#hex",
+    "surfaceTint": "#hex",
+    "background": "#hex",
+    "backgroundText": "#hex",
+    "outline": "#hex",
+    "surfaceContainerLowest": "#hex",
+    "surfaceContainerLow": "#hex",
+    "surfaceContainer": "#hex",
+    "surfaceContainerHigh": "#hex",
+    "error": "#hex",
+    "warning": "#hex",
+    "info": "#hex"
+  }
+}
+```
+
+### Field Descriptions
+
+**Metadata:**
+- **id** (required): Unique identifier in camelCase (e.g., `tokyoNight`, `gruvboxDark`)
+- **name** (required): Display name of your theme
+- **version** (required): Semver version (e.g., `1.0.0`)
+- **author** (required): Your name or username
+- **description** (required): Brief description of the theme
+
+**Color Fields (required for both dark and light):**
+- **primary**: Primary accent color
+- **primaryText**: Text color on primary backgrounds
+- **primaryContainer**: Container using primary color. Exported to apps as is, DMS paints a softer derived container (see **softPrimaryContainer** below)
+- **secondary**: Secondary accent color
+- **surface**: Main surface/card background
+- **surfaceText**: Text on surfaces
+- **surfaceVariant**: Alternative surface color
+- **surfaceVariantText**: Text on variant surfaces
+- **surfaceTint**: Tint overlay color
+- **background**: App background color
+- **backgroundText**: Text on background _(matugen-only — see note)_
+- **outline**: Border/divider color
+- **surfaceContainerLowest**: Lowest-elevation container background (darkest in dark mode, lightest in light mode) _(matugen-only — see note)_
+- **surfaceContainerLow**: Low-elevation container background (between surface and surfaceContainer) _(matugen-only — see note)_
+- **surfaceContainer**: Container background
+- **surfaceContainerHigh**: Elevated container background
+- **error**: Error state color
+- **warning**: Warning state color
+- **info**: Info state color
+
+> **Note — matugen-only keys:** `surfaceContainerLowest`, `surfaceContainerLow`, and
+> `backgroundText` are not rendered by Dux Shell's own UI. They complete the
+> Material palette and are exported to matugen templates (VS Code, KDE, Firefox, Zed,
+> etc.), so external apps themed via DMS use them. They are still required for a valid
+> theme — pick sensible values that fit your palette.
+
+**Optional color fields (derived when absent, used as is when present):**
+- **surfaceContainerHighest**: defaults to `surfaceContainerHigh`
+- **surfaceBright**, **surfaceDim**: bright and dim surface variants
+- **outlineVariant**: defaults to `outline` at 60% opacity
+- **secondaryContainer**, **tertiaryContainer**: containers using the secondary / tertiary color
+- **softPrimaryContainer**: the tinted fill DMS paints wherever a primary container appears (clock and weather cards, badges, icon boxes). Otherwise a mix of `surfaceContainer` and `primary`, both taken at one tone just above `surfaceContainer`
+- **containerTint**: number from `0` to `1`, the share of `primary` in that mix. Defaults to `0.5` in dark and `1` in light. Lower reads more pastel
+- **onPrimaryContainer**, **onSecondaryContainer**, **onTertiaryContainer**: text on those containers, otherwise picked for 4.5:1 contrast. On the derived `softPrimaryContainer` an `onPrimaryContainer` you set is kept only when it reads at 4.5:1; set `softPrimaryContainer` too and both are used as is
+- **inverseSurface**, **inverseOnSurface**: inverted surface pair for tooltips
+- **selectedContainer**, **onSelectedContainer**: the fill and text behind the selected item of every list. Otherwise `secondaryContainer` when it is set and readable, else a 20% `primary` tint on `surfaceContainerHigh` that keeps `surfaceText` at 4.5:1
+- **accentOnSelectedContainer**, **accentOnPrimaryContainer**: accent glyphs on those containers, otherwise `primary` when it reads at 3:1
+- **accents**: categorical badge hues, see the [theme docs](https://duxlabs.dev/docs/dms/custom-themes#accents)
+
+DMS never adjusts a color you set, even one that fails a contrast check. Derivation only fills gaps. The one exception is `onPrimaryContainer` without `softPrimaryContainer`, as noted above.
+
+### Theme Variants (Optional)
+
+If your theme has multiple contrast levels or style options (like hard/medium/soft), you can use the `variants` field instead of defining all colors at the top level.
+
+With variants, you put shared colors in the top-level `dark` and `light` objects, then define variant-specific colors in each variant option:
+
+```json
+{
+  "id": "everforest",
+  "name": "Everforest",
+  "version": "1.0.0",
+  "author": "fontaine",
+  "description": "Everforest is a green based color scheme",
+  "dark": {
+    "surfaceText": "#d3c6aa",
+    "primary": "#a7c080",
+    "secondary": "#7fbbb3",
+    "error": "#e57e80"
+  },
+  "light": {
+    "surfaceText": "#5c6a72",
+    "primary": "#8ca101",
+    "secondary": "#dea000",
+    "error": "#f75552"
+  },
+  "variants": {
+    "default": "medium",
+    "options": [
+      {
+        "id": "hard",
+        "name": "Hard",
+        "dark": {
+          "surface": "#1e2326",
+          "background": "#272e33",
+          "surfaceContainer": "#2e383c"
+        },
+        "light": {
+          "surface": "#f2efdf",
+          "background": "#fffbef",
+          "surfaceContainer": "#f2efdf"
+        }
+      },
+      {
+        "id": "medium",
+        "name": "Medium",
+        "dark": {
+          "surface": "#232a2e",
+          "background": "#2d353b",
+          "surfaceContainer": "#343f44"
+        },
+        "light": {
+          "surface": "#efebd4",
+          "background": "#fdf6e3",
+          "surfaceContainer": "#efebd4"
+        }
+      }
+    ]
+  }
+}
+```
+
+**Variant Fields:**
+- **variants.default**: The variant ID to use by default
+- **variants.options**: Array of variant definitions
+- **variants.options[].id**: Unique identifier for the variant
+- **variants.options[].name**: Display name for the variant
+- **variants.options[].dark/light**: Colors specific to this variant (merged with top-level colors)
+
+Colors in variant options override the top-level colors. Put colors that stay the same across variants at the top level, and colors that change per variant in the variant options.
+
+### Multi-Dimensional Variants (Optional)
+
+For themes with two independent variant axes (like Catppuccin with flavor + accent), use `type: "multi"`:
+
+```json
+{
+  "id": "catppuccin",
+  "name": "Catppuccin",
+  "version": "1.0.0",
+  "author": "Catppuccin",
+  "description": "Soothing pastel theme",
+  "dark": {},
+  "light": {},
+  "variants": {
+    "type": "multi",
+    "defaults": {
+      "dark": { "flavor": "mocha", "accent": "mauve" },
+      "light": { "flavor": "latte", "accent": "mauve" }
+    },
+    "flavors": [
+      {
+        "id": "mocha",
+        "name": "Mocha",
+        "dark": { "surface": "#181825", "surfaceText": "#cdd6f4", "..." }
+      },
+      {
+        "id": "latte",
+        "name": "Latte",
+        "light": { "surface": "#e6e9ef", "surfaceText": "#4c4f69", "..." }
+      }
+    ],
+    "accents": [
+      {
+        "id": "mauve",
+        "name": "Mauve",
+        "mocha": { "primary": "#cba6f7", "secondary": "#b4befe", "..." },
+        "latte": { "primary": "#8839ef", "secondary": "#7287fd", "..." }
+      }
+    ]
+  }
+}
+```
+
+**Multi-Variant Fields:**
+- **variants.type**: Set to `"multi"` for two-dimensional variants
+- **variants.defaults.dark**: Default flavor + accent for dark mode
+- **variants.defaults.light**: Default flavor + accent for light mode
+- **variants.flavors[]**: Base color sets (each has `dark` OR `light` key to indicate mode)
+- **variants.accents[]**: Accent colors keyed by flavor ID
+
+Resolution: `base[mode] + flavor[mode] + accent[flavorId]`
+
+UI toggles dark/light mode → picks the corresponding default flavor+accent.
+
+4. **Validate your theme locally**:
+
+   ```bash
+   pip install jinja2
+   python3 .github/validate_themes.py
+   python3 .github/generate.py --validate
+   ```
+
+5. **Submit a Pull Request**
+   - Commit only your `theme.json` file (previews are auto-generated)
+   - Push to your fork and create a PR
+   - A preview will be generated and posted as a comment on your PR
+   - After merge, the preview SVG will be committed automatically
+
+## Guidelines
+
+- All color values must be 6-digit hex codes (e.g., `#7aa2f7`)
+- Both `dark` and `light` variants are required
+- The `id` must be camelCase (starts lowercase, alphanumeric only)
+- Version must follow semver format (`X.Y.Z`)
+- Keep descriptions concise
+- Test your colors for readability and contrast

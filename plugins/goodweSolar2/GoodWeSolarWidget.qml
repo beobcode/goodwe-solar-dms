@@ -11,6 +11,8 @@ import qs.Modules.Plugins
 PluginComponent {
     id: root
 
+    property var popoutService: null
+
     // Solar Telemetry Properties
     property bool isOnline: false
     property string lastUpdated: ""
