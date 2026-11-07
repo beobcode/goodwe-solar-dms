@@ -64,6 +64,8 @@ PluginComponent {
     property var historyBattery: []
     property var recentDays: []
 
+    property string semsPortalUrl: pluginData.portalUrl || "https://au-semsplus.goodwe.com/"
+
     // Configuration / settings
     property bool showBatteryInBar: pluginData.showBatteryInBar ?? true
     property int pollInterval: parseInt(pluginData.pollInterval || "3000")
@@ -294,7 +296,7 @@ PluginComponent {
                 anchors.margins: Theme.spacingM
                 spacing: Theme.spacingM
 
-                // Header / Status row
+                // Header / Status row with SEMS Portal button
                 Row {
                     width: parent.width
                     spacing: Theme.spacingS
@@ -318,6 +320,47 @@ PluginComponent {
                             text: root.faultSummary + (root.lastUpdated ? ` • ${root.lastUpdated}` : "")
                             font.pixelSize: Theme.fontSizeSmall
                             color: Theme.surfaceVariantText
+                        }
+                    }
+
+                    Item { width: 1; height: 1; Layout.fillWidth: true }
+
+                    // Button to open GoodWe SEMS Portal in browser
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.right: parent.right
+                        height: 28
+                        width: portalRow.implicitWidth + 16
+                        radius: 14
+                        color: portalMouse.containsMouse ? Theme.surfaceContainerHighest : Theme.surfaceContainer
+
+                        Row {
+                            id: portalRow
+                            anchors.centerIn: parent
+                            spacing: 4
+
+                            DankIcon {
+                                name: "open_in_new"
+                                size: Theme.iconSize - 6
+                                color: portalMouse.containsMouse ? Theme.primary : Theme.surfaceVariantText
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+
+                            StyledText {
+                                text: "SEMS Portal"
+                                font.pixelSize: Theme.fontSizeSmall - 1
+                                font.weight: Font.Medium
+                                color: portalMouse.containsMouse ? Theme.primary : Theme.surfaceText
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+                        }
+
+                        MouseArea {
+                            id: portalMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: Qt.openUrlExternally(root.semsPortalUrl)
                         }
                     }
                 }
@@ -562,6 +605,62 @@ PluginComponent {
             Column {
                 width: parent.width
                 spacing: Theme.spacingM
+
+                // Top Info & Portal Link Bar
+                Row {
+                    width: parent.width
+
+                    Row {
+                        spacing: Theme.spacingS
+                        anchors.verticalCenter: parent.verticalCenter
+                        StyledText {
+                            text: `Inverter: ${root.inverterModel} (${root.inverterSerial || "Online"})`
+                            font.pixelSize: Theme.fontSizeSmall
+                            color: Theme.surfaceVariantText
+                        }
+                    }
+
+                    Item { width: 1; height: 1; Layout.fillWidth: true }
+
+                    // Button to open GoodWe SEMS Portal website in browser
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.right: parent.right
+                        height: 28
+                        width: popoutPortalRow.implicitWidth + 18
+                        radius: 14
+                        color: popoutPortalMouse.containsMouse ? Theme.surfaceContainerHighest : Theme.surfaceContainer
+
+                        Row {
+                            id: popoutPortalRow
+                            anchors.centerIn: parent
+                            spacing: 5
+
+                            DankIcon {
+                                name: "open_in_new"
+                                size: Theme.iconSize - 6
+                                color: popoutPortalMouse.containsMouse ? Theme.primary : Theme.surfaceVariantText
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+
+                            StyledText {
+                                text: "Open SEMS Portal"
+                                font.pixelSize: Theme.fontSizeSmall - 1
+                                font.weight: Font.Medium
+                                color: popoutPortalMouse.containsMouse ? Theme.primary : Theme.surfaceText
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+                        }
+
+                        MouseArea {
+                            id: popoutPortalMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: Qt.openUrlExternally(root.semsPortalUrl)
+                        }
+                    }
+                }
 
                 // Top 4 Flow Tiles
                 Row {

@@ -37,6 +37,7 @@ DesktopPluginComponent {
 
     property var historyPv: []
     property var historyLoad: []
+    property string semsPortalUrl: pluginData.portalUrl || "https://au-semsplus.goodwe.com/"
 
     function formatWatts(w) {
         const absW = Math.abs(w);
@@ -144,6 +145,29 @@ DesktopPluginComponent {
                 }
 
                 Item { Layout.fillWidth: true }
+
+                // SEMS Portal Website link
+                Rectangle {
+                    height: 22
+                    width: 24
+                    radius: 11
+                    color: desktopPortalMouse.containsMouse ? Theme.surfaceContainerHighest : "transparent"
+
+                    DankIcon {
+                        name: "open_in_new"
+                        size: Theme.iconSize - 6
+                        color: desktopPortalMouse.containsMouse ? Theme.primary : Theme.surfaceVariantText
+                        anchors.centerIn: parent
+                    }
+
+                    MouseArea {
+                        id: desktopPortalMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: Qt.openUrlExternally(root.semsPortalUrl)
+                    }
+                }
 
                 // Today's kWh Badge
                 Rectangle {
