@@ -5,6 +5,7 @@ import Quickshell.Io
 import qs.Common
 import qs.Services
 import qs.Widgets
+import qs.DCommon.Widgets
 import qs.Modules.Plugins
 
 PluginComponent {
@@ -234,7 +235,7 @@ PluginComponent {
                         if (!root.isOnline) return Theme.surfaceVariantText;
                         return root.pvPowerW > 500 ? Theme.warning : Theme.primary;
                     }
-                    size: Theme.iconSize - 4
+                    size: Theme.iconSizeSmall
                     anchors.verticalCenter: parent.verticalCenter
                 }
 
@@ -250,7 +251,7 @@ PluginComponent {
                 StyledText {
                     visible: root.showDailyEnergy && root.isOnline && root.eDayPvKwh > 0
                     text: `(${root.eDayPvKwh}k)`
-                    font.pixelSize: Theme.fontSizeSmall - 1
+                    font.pixelSize: Theme.fontSizeXSmall
                     color: Theme.surfaceVariantText
                     anchors.verticalCenter: parent.verticalCenter
                 }
@@ -268,7 +269,7 @@ PluginComponent {
                             if (root.batterySoc <= 20) return Theme.error;
                             return Theme.surfaceVariantText;
                         }
-                        size: Theme.iconSize - 4
+                        size: Theme.iconSizeSmall
                         anchors.verticalCenter: parent.verticalCenter
                     }
 
@@ -298,7 +299,7 @@ PluginComponent {
                 DankIcon {
                     name: root.hasFault ? "error" : "solar_power"
                     color: root.hasFault ? Theme.error : Theme.warning
-                    size: Theme.iconSize - 4
+                    size: Theme.iconSizeSmall
                     anchors.horizontalCenter: parent.horizontalCenter
                 }
 
@@ -355,7 +356,7 @@ PluginComponent {
                     Item { Layout.fillWidth: true }
 
                     // Button to open GoodWe SEMS Portal in browser
-                    DankButton {
+                    DButton {
                         Layout.alignment: Qt.AlignVCenter
                         text: "SEMS Portal"
                         iconName: "open_in_new"
@@ -574,17 +575,17 @@ PluginComponent {
 
                     StyledText {
                         text: `Serial: ${root.inverterSerial || "N/A"}`
-                        font.pixelSize: Theme.fontSizeSmall - 1
+                        font.pixelSize: Theme.fontSizeXSmall
                         color: Theme.surfaceVariantText
                     }
                     StyledText {
                         text: `• Inverter Temp: ${root.tempInverter}°C`
-                        font.pixelSize: Theme.fontSizeSmall - 1
+                        font.pixelSize: Theme.fontSizeXSmall
                         color: Theme.surfaceVariantText
                     }
                     StyledText {
                         text: `• Bat Temp: ${root.batteryTemp}°C`
-                        font.pixelSize: Theme.fontSizeSmall - 1
+                        font.pixelSize: Theme.fontSizeXSmall
                         color: Theme.surfaceVariantText
                     }
                 }
@@ -625,7 +626,7 @@ PluginComponent {
                     Item { Layout.fillWidth: true }
 
                     // Button to open GoodWe SEMS Portal website in browser
-                    DankButton {
+                    DButton {
                         Layout.alignment: Qt.AlignVCenter
                         text: "Open SEMS Portal"
                         iconName: "open_in_new"
@@ -658,7 +659,7 @@ PluginComponent {
                                 DankIcon {
                                     name: "solar_power"
                                     color: Theme.warning
-                                    size: Theme.iconSize - 6
+                                    size: Theme.iconSizeSmall
                                     anchors.verticalCenter: parent.verticalCenter
                                 }
                                 StyledText {
@@ -677,7 +678,7 @@ PluginComponent {
                             }
                             StyledText {
                                 text: `Day: ${root.eDayPvKwh} kWh`
-                                font.pixelSize: Theme.fontSizeSmall - 2
+                                font.pixelSize: Theme.fontSizeXSmall
                                 color: Theme.surfaceVariantText
                                 anchors.horizontalCenter: parent.horizontalCenter
                             }
@@ -700,7 +701,7 @@ PluginComponent {
                                 DankIcon {
                                     name: root.getBatteryIcon(root.batterySoc, root.batteryChargeW > 0)
                                     color: root.batteryChargeW > 0 ? Theme.success : (root.batteryDischargeW > 0 ? Theme.info : Theme.surfaceVariantText)
-                                    size: Theme.iconSize - 6
+                                    size: Theme.iconSizeSmall
                                     anchors.verticalCenter: parent.verticalCenter
                                 }
                                 StyledText {
@@ -719,7 +720,7 @@ PluginComponent {
                             }
                             StyledText {
                                 text: root.batteryMode
-                                font.pixelSize: Theme.fontSizeSmall - 2
+                                font.pixelSize: Theme.fontSizeXSmall
                                 color: Theme.surfaceVariantText
                                 anchors.horizontalCenter: parent.horizontalCenter
                             }
@@ -742,7 +743,7 @@ PluginComponent {
                                 DankIcon {
                                     name: "home"
                                     color: Theme.secondary
-                                    size: Theme.iconSize - 6
+                                    size: Theme.iconSizeSmall
                                     anchors.verticalCenter: parent.verticalCenter
                                 }
                                 StyledText {
@@ -761,7 +762,7 @@ PluginComponent {
                             }
                             StyledText {
                                 text: `Day: ${root.eDayLoadKwh} kWh`
-                                font.pixelSize: Theme.fontSizeSmall - 2
+                                font.pixelSize: Theme.fontSizeXSmall
                                 color: Theme.surfaceVariantText
                                 anchors.horizontalCenter: parent.horizontalCenter
                             }
@@ -784,7 +785,7 @@ PluginComponent {
                                 DankIcon {
                                     name: "electric_bolt"
                                     color: root.gridPowerW > 0 ? Theme.success : (root.gridPowerW < 0 ? Theme.error : Theme.surfaceVariantText)
-                                    size: Theme.iconSize - 6
+                                    size: Theme.iconSizeSmall
                                     anchors.verticalCenter: parent.verticalCenter
                                 }
                                 StyledText {
@@ -803,7 +804,7 @@ PluginComponent {
                             }
                             StyledText {
                                 text: `Export: ${root.eDayExpKwh} kWh`
-                                font.pixelSize: Theme.fontSizeSmall - 2
+                                font.pixelSize: Theme.fontSizeXSmall
                                 color: Theme.surfaceVariantText
                                 anchors.horizontalCenter: parent.horizontalCenter
                             }
@@ -839,22 +840,22 @@ PluginComponent {
                                 Row {
                                     spacing: Theme.spacingXS / 2
                                     Rectangle { width: Theme.spacingS; height: Theme.spacingS; radius: Theme.spacingS / 2; color: Theme.warning; anchors.verticalCenter: parent.verticalCenter }
-                                    StyledText { text: "PV (W)"; font.pixelSize: Theme.fontSizeSmall - 3; color: Theme.surfaceVariantText }
+                                    StyledText { text: "PV (W)"; font.pixelSize: Theme.fontSizeXSmall; color: Theme.surfaceVariantText }
                                 }
                                 Row {
                                     spacing: Theme.spacingXS / 2
                                     Rectangle { width: Theme.spacingS; height: Theme.spacingS; radius: Theme.spacingS / 2; color: Theme.secondary; anchors.verticalCenter: parent.verticalCenter }
-                                    StyledText { text: "Load (W)"; font.pixelSize: Theme.fontSizeSmall - 3; color: Theme.surfaceVariantText }
+                                    StyledText { text: "Load (W)"; font.pixelSize: Theme.fontSizeXSmall; color: Theme.surfaceVariantText }
                                 }
                                 Row {
                                     spacing: Theme.spacingXS / 2
                                     Rectangle { width: Theme.spacingS; height: Theme.spacingS; radius: Theme.spacingS / 2; color: Theme.info; anchors.verticalCenter: parent.verticalCenter }
-                                    StyledText { text: "Grid (+/-)"; font.pixelSize: Theme.fontSizeSmall - 3; color: Theme.surfaceVariantText }
+                                    StyledText { text: "Grid (+/-)"; font.pixelSize: Theme.fontSizeXSmall; color: Theme.surfaceVariantText }
                                 }
                                 Row {
                                     spacing: Theme.spacingXS / 2
                                     Rectangle { width: Theme.spacingS; height: Theme.spacingS; radius: Theme.spacingS / 2; color: Theme.success; anchors.verticalCenter: parent.verticalCenter }
-                                    StyledText { text: "Bat (%)"; font.pixelSize: Theme.fontSizeSmall - 3; color: Theme.success }
+                                    StyledText { text: "Bat (%)"; font.pixelSize: Theme.fontSizeXSmall; color: Theme.success }
                                 }
                             }
                         }
@@ -863,7 +864,7 @@ PluginComponent {
                         Canvas {
                             id: solarCanvas
                             width: parent.width
-                            height: parent.height - 30
+                            height: parent.height - Theme.iconSizeMedium - Theme.spacingS
                             renderStrategy: Canvas.Cooperative
 
                             property var pvData: root.historyPv
@@ -894,10 +895,10 @@ PluginComponent {
                                 }
 
                                 const n = pvData.length;
-                                const padLeft = 4;
-                                const padRight = 36; // leave margin for battery SoC right Y-axis
-                                const padTop = 10;
-                                const padBottom = 16;
+                                const padLeft = Theme.spacingXS;
+                                const padRight = Theme.iconSizeLarge + Theme.spacingXS; // leave margin for battery SoC right Y-axis
+                                const padTop = Theme.spacingS;
+                                const padBottom = Theme.spacingL;
                                 const chartW = width - padLeft - padRight;
                                 const chartH = height - padTop - padBottom;
                                 const stepX = chartW / Math.max(1, n - 1);
@@ -946,7 +947,7 @@ PluginComponent {
                                     ctx.setLineDash([]);
 
                                     ctx.fillStyle = Qt.rgba(Theme.surfaceText.r, Theme.surfaceText.g, Theme.surfaceText.b, 0.5);
-                                    ctx.font = `${Math.max(9, Math.round(Theme.fontSizeSmall * 0.75))}px ${Theme.fontFamily || "sans-serif"}`;
+                                    ctx.font = `${Theme.fontSizeXSmall}px ${Theme.fontFamily || "sans-serif"}`;
                                     ctx.textAlign = "left";
                                     ctx.fillText("0 W", padLeft + 2, yZero - 2);
                                 }
@@ -1015,7 +1016,7 @@ PluginComponent {
 
                                     // Right Y-axis labels: 100%, 50%, 0%
                                     ctx.fillStyle = Qt.rgba(Theme.success.r, Theme.success.g, Theme.success.b, 0.85);
-                                    ctx.font = `${Math.max(9, Math.round(Theme.fontSizeSmall * 0.75))}px ${Theme.fontFamily || "sans-serif"}`;
+                                    ctx.font = `${Theme.fontSizeXSmall}px ${Theme.fontFamily || "sans-serif"}`;
                                     ctx.textAlign = "left";
                                     ctx.fillText("100%", padLeft + chartW + 4, padTop + 8);
                                     ctx.fillText("50%", padLeft + chartW + 4, padTop + (chartH / 2) + 3);
@@ -1061,7 +1062,7 @@ PluginComponent {
                             Item { Layout.fillWidth: true }
                             StyledText {
                                 text: `Total PV: ${root.eTotalPvKwh} kWh`
-                                font.pixelSize: Theme.fontSizeSmall - 2
+                                font.pixelSize: Theme.fontSizeXSmall
                                 color: Theme.surfaceVariantText
                                 Layout.alignment: Qt.AlignVCenter
                             }
@@ -1087,7 +1088,7 @@ PluginComponent {
 
                                         StyledText {
                                             text: `${modelData.pv_kwh}k`
-                                            font.pixelSize: Theme.fontSizeSmall - 3
+                                            font.pixelSize: Theme.fontSizeXSmall
                                             font.weight: Font.Bold
                                             color: Theme.warning
                                             anchors.horizontalCenter: parent.horizontalCenter
@@ -1095,14 +1096,14 @@ PluginComponent {
 
                                         Item {
                                             width: parent.width
-                                            height: parent.height - 30
+                                            height: parent.height - Theme.iconSizeMedium - Theme.spacingS
 
                                             Rectangle {
-                                                width: Math.min(24, parent.width * 0.7)
+                                                width: Math.min(Theme.iconSize, parent.width * 0.7)
                                                 anchors.horizontalCenter: parent.horizontalCenter
                                                 anchors.bottom: parent.bottom
                                                 // Max day scale ~35 kWh
-                                                height: Math.max(4, Math.min(parent.height, (modelData.pv_kwh / 35.0) * parent.height))
+                                                height: Math.max(Theme.spacingXS, Math.min(parent.height, (modelData.pv_kwh / 35.0) * parent.height))
                                                 radius: Theme.cornerRadius / 3
                                                 color: Theme.warning
                                             }
@@ -1110,7 +1111,7 @@ PluginComponent {
 
                                         StyledText {
                                             text: modelData.day_name || "Day"
-                                            font.pixelSize: Theme.fontSizeSmall - 3
+                                            font.pixelSize: Theme.fontSizeXSmall
                                             color: Theme.surfaceVariantText
                                             anchors.horizontalCenter: parent.horizontalCenter
                                         }

@@ -149,7 +149,7 @@ DesktopPluginComponent {
                     spacing: Theme.spacingXS
                     DankIcon {
                         name: root.hasFault ? "error" : "solar_power"
-                        size: Theme.iconSize - 2
+                        size: Theme.iconSizeSmall
                         color: root.hasFault ? Theme.error : (root.isOnline ? Theme.warning : Theme.surfaceVariantText)
                         anchors.verticalCenter: parent.verticalCenter
                     }
@@ -166,7 +166,7 @@ DesktopPluginComponent {
 
                 Rectangle {
                     visible: root.isOnline
-                    height: 22
+                    height: Theme.iconSizeMedium + Theme.spacingXXS
                     width: yieldRow.implicitWidth + Theme.spacingS * 2
                     radius: Theme.cornerRadius / 2
                     color: Theme.surfaceContainerHighest
@@ -174,16 +174,16 @@ DesktopPluginComponent {
                     Row {
                         id: yieldRow
                         anchors.centerIn: parent
-                        spacing: 3
+                        spacing: Theme.spacingXXS
                         DankIcon {
                             name: "wb_sunny"
-                            size: 14
+                            size: Theme.iconSizeSmall - Theme.spacingXXS
                             color: Theme.warning
                             anchors.verticalCenter: parent.verticalCenter
                         }
                         StyledText {
                             text: `${root.eDayPvKwh} kWh`
-                            font.pixelSize: Theme.fontSizeSmall - 2
+                            font.pixelSize: Theme.fontSizeXSmall
                             font.weight: Font.Bold
                             color: Theme.surfaceText
                             anchors.verticalCenter: parent.verticalCenter
@@ -193,14 +193,14 @@ DesktopPluginComponent {
 
                 // External Link to GoodWe SEMS Portal
                 Rectangle {
-                    height: 22
-                    width: 22
+                    height: Theme.iconSizeMedium + Theme.spacingXXS
+                    width: Theme.iconSizeMedium + Theme.spacingXXS
                     radius: Theme.cornerRadius / 2
                     color: desktopPortalMouse.containsMouse ? Theme.surfaceContainerHighest : "transparent"
 
                     DankIcon {
                         name: "open_in_new"
-                        size: 14
+                        size: Theme.iconSizeSmall - Theme.spacingXXS
                         color: desktopPortalMouse.containsMouse ? Theme.primary : Theme.surfaceVariantText
                         anchors.centerIn: parent
                     }
@@ -223,14 +223,14 @@ DesktopPluginComponent {
                     spacing: 0
                     StyledText {
                         text: root.isOnline ? root.formatWatts(root.pvPowerW) : "Offline"
-                        font.pixelSize: Theme.fontSizeLarge + 6
+                        font.pixelSize: Theme.fontSizeXLarge
                         font.weight: Font.Bold
                         color: root.pvPowerW > 500 ? Theme.warning : Theme.surfaceText
                     }
 
                     StyledText {
                         text: root.hasFault ? root.faultSummary : (root.isOnline ? (root.pvPowerW > 0 ? "Generating Power" : "Standby") : "Inverter Unreachable")
-                        font.pixelSize: Theme.fontSizeSmall - 2
+                        font.pixelSize: Theme.fontSizeXSmall
                         color: root.hasFault ? Theme.error : Theme.surfaceVariantText
                     }
                 }
@@ -242,7 +242,7 @@ DesktopPluginComponent {
                     spacing: Theme.spacingXS
                     DankIcon {
                         name: root.getBatteryIcon(root.batterySoc, root.batteryChargeW > 0)
-                        size: Theme.iconSize - 4
+                        size: Theme.iconSizeSmall
                         color: root.batteryChargeW > 0 ? Theme.success : (root.batteryDischargeW > 0 ? Theme.info : Theme.surfaceVariantText)
                         anchors.verticalCenter: parent.verticalCenter
                     }
@@ -282,7 +282,7 @@ DesktopPluginComponent {
 
                         if (!pvData || pvData.length < 2) {
                             ctx.fillStyle = Qt.rgba(Theme.surfaceText.r, Theme.surfaceText.g, Theme.surfaceText.b, 0.35);
-                            ctx.font = `${Theme.fontSizeSmall - 1}px ${Theme.fontFamily || "sans-serif"}`;
+                            ctx.font = `${Theme.fontSizeXSmall}px ${Theme.fontFamily || "sans-serif"}`;
                             ctx.textAlign = "center";
                             ctx.fillText("Tracking daily curve...", width / 2, height / 2);
                             return;
@@ -339,7 +339,7 @@ DesktopPluginComponent {
                     spacing: 1
                     StyledText {
                         text: "Battery"
-                        font.pixelSize: Theme.fontSizeSmall - 2
+                        font.pixelSize: Theme.fontSizeXSmall
                         color: Theme.surfaceVariantText
                         anchors.horizontalCenter: parent.horizontalCenter
                     }
@@ -358,7 +358,7 @@ DesktopPluginComponent {
                     spacing: 1
                     StyledText {
                         text: "Home Load"
-                        font.pixelSize: Theme.fontSizeSmall - 2
+                        font.pixelSize: Theme.fontSizeXSmall
                         color: Theme.surfaceVariantText
                         anchors.horizontalCenter: parent.horizontalCenter
                     }
@@ -377,7 +377,7 @@ DesktopPluginComponent {
                     spacing: 1
                     StyledText {
                         text: root.gridPowerW > 0 ? "Grid (Export)" : (root.gridPowerW < 0 ? "Grid (Import)" : "Grid Flow")
-                        font.pixelSize: Theme.fontSizeSmall - 2
+                        font.pixelSize: Theme.fontSizeXSmall
                         color: Theme.surfaceVariantText
                         anchors.horizontalCenter: parent.horizontalCenter
                     }
