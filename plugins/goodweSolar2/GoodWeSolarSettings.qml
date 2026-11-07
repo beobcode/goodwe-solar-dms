@@ -17,31 +17,10 @@ PluginSettings {
 
     StyledText {
         width: parent.width
-        text: "Monitors your GoodWe solar inverter locally via Modbus TCP (port 502) without cloud dependency."
+        text: "Monitors your GoodWe solar inverter locally via Modbus TCP (port 502). Requires the companion background poller daemon (poller.py)."
         font.pixelSize: Theme.fontSizeSmall
         color: Theme.surfaceVariantText
         wrapMode: Text.WordWrap
-    }
-
-    StringSetting {
-        settingKey: "inverterHost"
-        label: "Inverter IP Address"
-        description: "Local IP address of the inverter"
-        placeholder: "192.168.1.100"
-        defaultValue: "192.168.1.100"
-    }
-
-    SelectionSetting {
-        settingKey: "pollInterval"
-        label: "Update Interval"
-        description: "How frequently to refresh telemetry"
-        options: [
-            { label: "2 Seconds", value: "2000" },
-            { label: "3 Seconds", value: "3000" },
-            { label: "5 Seconds", value: "5000" },
-            { label: "10 Seconds", value: "10000" }
-        ]
-        defaultValue: "3000"
     }
 
     ToggleSetting {
@@ -54,7 +33,7 @@ PluginSettings {
     ToggleSetting {
         settingKey: "showDailyEnergy"
         label: "Show Daily Generation"
-        description: "Display today's total kWh generated"
+        description: "Display today's total kWh generated in the bar pill"
         defaultValue: true
     }
 }

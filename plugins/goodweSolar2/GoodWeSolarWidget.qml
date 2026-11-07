@@ -68,7 +68,14 @@ PluginComponent {
 
     // Configuration / settings
     property bool showBatteryInBar: pluginData.showBatteryInBar ?? true
-    property int pollInterval: parseInt(pluginData.pollInterval || "3000")
+    property bool showDailyEnergy: pluginData.showDailyEnergy ?? true
+
+    readonly property string cacheFilePath: {
+        const xdg = Quickshell.env("XDG_CACHE_HOME");
+        const home = Quickshell.env("HOME") || "";
+        const base = (xdg && xdg.length > 0) ? xdg : (home + "/.cache");
+        return base + "/goodwe_solar.json";
+    }
 
     // Formatting helpers
     function formatWatts(w) {
@@ -105,91 +112,84 @@ PluginComponent {
     ccDetailHeight: 340
 
     onCcWidgetToggled: {
-        fetchStatsProcess.running = true;
+        cacheFileView.reload();
         ToastService.showInfo("GoodWe Solar", "Refreshing telemetry...");
     }
 
-    // Background Poll Timer
-    Timer {
-        id: pollTimer
-        interval: root.pollInterval
-        running: true
-        repeat: true
-        triggeredOnStart: true
-        onTriggered: {
-            if (!fetchStatsProcess.running) {
-                fetchStatsProcess.running = true;
+    function parseTelemetry() {
+        try {
+            const str = cacheFileView.text();
+            if (!str || !str.trim()) {
+                root.isOnline = false;
+                return;
             }
+            const data = JSON.parse(str);
+            const nowSec = Math.floor(Date.now() / 1000);
+            const ts = data.timestamp || 0;
+            // Mark offline if telemetry is older than 30 seconds or poller flagged offline
+            root.isOnline = (data.online ?? true) && ((nowSec - ts) < 30);
+            root.lastUpdated = data.last_updated ?? "";
+            root.inverterModel = data.model ?? "GoodWe";
+            root.inverterSerial = data.serial ?? "";
+            root.workMode = data.work_mode ?? "Normal";
+
+            root.pvPowerW = data.pv_power_w ?? 0;
+            root.pv1PowerW = data.pv1_power_w ?? 0;
+            root.pv2PowerW = data.pv2_power_w ?? 0;
+            root.batteryPowerW = data.battery_power_w ?? 0;
+            root.batteryChargeW = data.battery_charge_w ?? 0;
+            root.batteryDischargeW = data.battery_discharge_w ?? 0;
+            root.houseConsumptionW = data.house_consumption_w ?? 0;
+            root.gridPowerW = data.grid_power_w ?? 0;
+            root.gridExportW = data.grid_export_w ?? 0;
+            root.gridImportW = data.grid_import_w ?? 0;
+            root.backupPowerW = data.backup_power_w ?? 0;
+
+            root.batterySoc = data.battery_soc ?? 0;
+            root.batterySoh = data.battery_soh ?? 100;
+            root.batteryMode = data.battery_mode ?? "Idle";
+            root.batteryVoltage = data.battery_voltage ?? 0.0;
+            root.batteryCurrent = data.battery_current ?? 0.0;
+            root.batteryTemp = data.battery_temp ?? 0.0;
+
+            root.gridVoltage = data.grid_voltage ?? 0.0;
+            root.gridFrequency = data.grid_frequency ?? 50.0;
+            root.gridMode = data.grid_mode ?? "Connected";
+
+            root.tempAir = data.temp_air ?? 0.0;
+            root.tempInverter = data.temp_inverter ?? 0.0;
+
+            root.eDayPvKwh = data.e_day_pv_kwh ?? 0.0;
+            root.eTotalPvKwh = data.e_total_pv_kwh ?? 0.0;
+            root.eDayExpKwh = data.e_day_exp_kwh ?? 0.0;
+            root.eDayImpKwh = data.e_day_imp_kwh ?? 0.0;
+            root.eDayLoadKwh = data.e_day_load_kwh ?? 0.0;
+            root.eDayChargeKwh = data.e_day_charge_kwh ?? 0.0;
+            root.eDayDischargeKwh = data.e_day_discharge_kwh ?? 0.0;
+
+            root.hasFault = data.has_fault ?? false;
+            root.hasWarning = data.has_warning ?? false;
+            root.faultSummary = data.fault_summary ?? "System Normal";
+            root.faultMessages = data.fault_messages ?? [];
+
+            root.historyPv = data.history_pv ?? [];
+            root.historyLoad = data.history_load ?? [];
+            root.historyGrid = data.history_grid ?? [];
+            root.historySoc = data.history_soc ?? [];
+            root.historyBattery = data.history_battery ?? [];
+            root.recentDays = data.recent_days ?? [];
+        } catch (e) {
+            root.isOnline = false;
         }
     }
 
-    // Read cache file written by local poller
-    Process {
-        id: fetchStatsProcess
-        command: ["sh", "-c", "cat \"${XDG_CACHE_HOME:-$HOME/.cache}/goodwe_solar.json\" 2>/dev/null"]
-        running: false
-
-        stdout: StdioCollector {
-            onStreamFinished: {
-                const str = text.trim();
-                if (!str) return;
-                try {
-                    const data = JSON.parse(str);
-                    root.isOnline = data.online ?? true;
-                    root.lastUpdated = data.last_updated ?? "";
-                    root.inverterModel = data.model ?? "GoodWe";
-                    root.inverterSerial = data.serial ?? "";
-                    root.workMode = data.work_mode ?? "Normal";
-
-                    root.pvPowerW = data.pv_power_w ?? 0;
-                    root.pv1PowerW = data.pv1_power_w ?? 0;
-                    root.pv2PowerW = data.pv2_power_w ?? 0;
-                    root.batteryPowerW = data.battery_power_w ?? 0;
-                    root.batteryChargeW = data.battery_charge_w ?? 0;
-                    root.batteryDischargeW = data.battery_discharge_w ?? 0;
-                    root.houseConsumptionW = data.house_consumption_w ?? 0;
-                    root.gridPowerW = data.grid_power_w ?? 0;
-                    root.gridExportW = data.grid_export_w ?? 0;
-                    root.gridImportW = data.grid_import_w ?? 0;
-                    root.backupPowerW = data.backup_power_w ?? 0;
-
-                    root.batterySoc = data.battery_soc ?? 0;
-                    root.batterySoh = data.battery_soh ?? 100;
-                    root.batteryMode = data.battery_mode ?? "Idle";
-                    root.batteryVoltage = data.battery_voltage ?? 0.0;
-                    root.batteryCurrent = data.battery_current ?? 0.0;
-                    root.batteryTemp = data.battery_temp ?? 0.0;
-
-                    root.gridVoltage = data.grid_voltage ?? 0.0;
-                    root.gridFrequency = data.grid_frequency ?? 50.0;
-                    root.gridMode = data.grid_mode ?? "Connected";
-
-                    root.tempAir = data.temp_air ?? 0.0;
-                    root.tempInverter = data.temp_inverter ?? 0.0;
-
-                    root.eDayPvKwh = data.e_day_pv_kwh ?? 0.0;
-                    root.eTotalPvKwh = data.e_total_pv_kwh ?? 0.0;
-                    root.eDayExpKwh = data.e_day_exp_kwh ?? 0.0;
-                    root.eDayImpKwh = data.e_day_imp_kwh ?? 0.0;
-                    root.eDayLoadKwh = data.e_day_load_kwh ?? 0.0;
-                    root.eDayChargeKwh = data.e_day_charge_kwh ?? 0.0;
-                    root.eDayDischargeKwh = data.e_day_discharge_kwh ?? 0.0;
-
-                    root.hasFault = data.has_fault ?? false;
-                    root.hasWarning = data.has_warning ?? false;
-                    root.faultSummary = data.fault_summary ?? "System Normal";
-                    root.faultMessages = data.fault_messages ?? [];
-
-                    root.historyPv = data.history_pv ?? [];
-                    root.historyLoad = data.history_load ?? [];
-                    root.historyGrid = data.history_grid ?? [];
-                    root.historySoc = data.history_soc ?? [];
-                    root.historyBattery = data.history_battery ?? [];
-                    root.recentDays = data.recent_days ?? [];
-                } catch (e) {
-                }
-            }
-        }
+    // Reactively watch cache file changes without continuous polling
+    FileView {
+        id: cacheFileView
+        path: root.cacheFilePath
+        watchChanges: true
+        onLoaded: root.parseTelemetry()
+        onFileChanged: cacheFileView.reload()
     }
 
     layerNamespacePlugin: "goodwe-solar"
@@ -212,7 +212,7 @@ PluginComponent {
                     color: {
                         if (root.hasFault) return Theme.error;
                         if (!root.isOnline) return Theme.surfaceVariantText;
-                        return root.pvPowerW > 500 ? "#f59e0b" : Theme.primary;
+                        return root.pvPowerW > 500 ? Theme.warning : Theme.primary;
                     }
                     size: Theme.iconSize - 4
                     anchors.verticalCenter: parent.verticalCenter
@@ -226,6 +226,15 @@ PluginComponent {
                     anchors.verticalCenter: parent.verticalCenter
                 }
 
+                // Daily kWh (if enabled)
+                StyledText {
+                    visible: root.showDailyEnergy && root.isOnline && root.eDayPvKwh > 0
+                    text: `(${root.eDayPvKwh}k)`
+                    font.pixelSize: Theme.fontSizeSmall - 1
+                    color: Theme.surfaceVariantText
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+
                 // Battery (if enabled)
                 Row {
                     spacing: Theme.spacingXS
@@ -235,7 +244,7 @@ PluginComponent {
                     DankIcon {
                         name: root.getBatteryIcon(root.batterySoc, root.batteryChargeW > 0)
                         color: {
-                            if (root.batteryChargeW > 0) return "#10b981";
+                            if (root.batteryChargeW > 0) return Theme.success;
                             if (root.batterySoc <= 20) return Theme.error;
                             return Theme.surfaceVariantText;
                         }
@@ -268,7 +277,7 @@ PluginComponent {
 
                 DankIcon {
                     name: root.hasFault ? "error" : "solar_power"
-                    color: root.hasFault ? Theme.error : "#f59e0b"
+                    color: root.hasFault ? Theme.error : Theme.warning
                     size: Theme.iconSize - 4
                     anchors.horizontalCenter: parent.horizontalCenter
                 }
@@ -297,19 +306,19 @@ PluginComponent {
                 spacing: Theme.spacingM
 
                 // Header / Status row with SEMS Portal button
-                Row {
+                RowLayout {
                     width: parent.width
                     spacing: Theme.spacingS
 
                     DankIcon {
                         name: root.hasFault ? "error" : (root.isOnline ? "check_circle" : "cloud_off")
-                        color: root.hasFault ? Theme.error : (root.isOnline ? "#10b981" : Theme.surfaceVariantText)
+                        color: root.hasFault ? Theme.error : (root.isOnline ? Theme.success : Theme.surfaceVariantText)
                         size: Theme.iconSize
-                        anchors.verticalCenter: parent.verticalCenter
+                        Layout.alignment: Qt.AlignVCenter
                     }
 
                     Column {
-                        anchors.verticalCenter: parent.verticalCenter
+                        Layout.alignment: Qt.AlignVCenter
                         StyledText {
                             text: root.hasFault ? "FAULT ACTIVE" : "GoodWe Inverter Online"
                             font.pixelSize: Theme.fontSizeMedium
@@ -323,21 +332,20 @@ PluginComponent {
                         }
                     }
 
-                    Item { width: 1; height: 1; Layout.fillWidth: true }
+                    Item { Layout.fillWidth: true }
 
                     // Button to open GoodWe SEMS Portal in browser
                     Rectangle {
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.right: parent.right
+                        Layout.alignment: Qt.AlignVCenter
                         height: 28
-                        width: portalRow.implicitWidth + 16
-                        radius: 14
+                        width: portalRow.implicitWidth + Theme.spacingL
+                        radius: Theme.cornerRadius / 2
                         color: portalMouse.containsMouse ? Theme.surfaceContainerHighest : Theme.surfaceContainer
 
                         Row {
                             id: portalRow
                             anchors.centerIn: parent
-                            spacing: 4
+                            spacing: Theme.spacingXS
 
                             DankIcon {
                                 name: "open_in_new"
@@ -383,7 +391,7 @@ PluginComponent {
                             spacing: Theme.spacingS
                             DankIcon {
                                 name: "solar_power"
-                                color: "#f59e0b"
+                                color: Theme.warning
                                 size: Theme.iconSize
                                 anchors.verticalCenter: parent.verticalCenter
                             }
@@ -416,7 +424,7 @@ PluginComponent {
                             spacing: Theme.spacingS
                             DankIcon {
                                 name: root.getBatteryIcon(root.batterySoc, root.batteryChargeW > 0)
-                                color: root.batteryChargeW > 0 ? "#10b981" : (root.batteryDischargeW > 0 ? "#3b82f6" : Theme.surfaceVariantText)
+                                color: root.batteryChargeW > 0 ? Theme.success : (root.batteryDischargeW > 0 ? Theme.info : Theme.surfaceVariantText)
                                 size: Theme.iconSize
                                 anchors.verticalCenter: parent.verticalCenter
                             }
@@ -449,7 +457,7 @@ PluginComponent {
                             spacing: Theme.spacingS
                             DankIcon {
                                 name: "home"
-                                color: "#8b5cf6"
+                                color: Theme.secondary
                                 size: Theme.iconSize
                                 anchors.verticalCenter: parent.verticalCenter
                             }
@@ -482,7 +490,7 @@ PluginComponent {
                             spacing: Theme.spacingS
                             DankIcon {
                                 name: "electric_bolt"
-                                color: root.gridPowerW > 0 ? "#10b981" : (root.gridPowerW < 0 ? "#ef4444" : Theme.surfaceVariantText)
+                                color: root.gridPowerW > 0 ? Theme.success : (root.gridPowerW < 0 ? Theme.error : Theme.surfaceVariantText)
                                 size: Theme.iconSize
                                 anchors.verticalCenter: parent.verticalCenter
                             }
@@ -497,7 +505,7 @@ PluginComponent {
                                     text: root.gridPowerW > 0 ? `+${root.formatWatts(root.gridPowerW)}` : (root.gridPowerW < 0 ? `-${root.formatWatts(root.gridPowerW)}` : "0 W")
                                     font.pixelSize: Theme.fontSizeMedium
                                     font.weight: Font.Bold
-                                    color: root.gridPowerW > 0 ? "#10b981" : (root.gridPowerW < 0 ? "#ef4444" : Theme.surfaceText)
+                                    color: root.gridPowerW > 0 ? Theme.success : (root.gridPowerW < 0 ? Theme.error : Theme.surfaceText)
                                 }
                             }
                         }
@@ -542,7 +550,7 @@ PluginComponent {
                                 text: `${root.eDayExpKwh} kWh`
                                 font.pixelSize: Theme.fontSizeMedium
                                 font.weight: Font.Bold
-                                color: "#10b981"
+                                color: Theme.success
                                 anchors.horizontalCenter: parent.horizontalCenter
                             }
                         }
@@ -607,12 +615,12 @@ PluginComponent {
                 spacing: Theme.spacingM
 
                 // Top Info & Portal Link Bar
-                Row {
+                RowLayout {
                     width: parent.width
 
                     Row {
                         spacing: Theme.spacingS
-                        anchors.verticalCenter: parent.verticalCenter
+                        Layout.alignment: Qt.AlignVCenter
                         StyledText {
                             text: `Inverter: ${root.inverterModel} (${root.inverterSerial || "Online"})`
                             font.pixelSize: Theme.fontSizeSmall
@@ -620,21 +628,20 @@ PluginComponent {
                         }
                     }
 
-                    Item { width: 1; height: 1; Layout.fillWidth: true }
+                    Item { Layout.fillWidth: true }
 
                     // Button to open GoodWe SEMS Portal website in browser
                     Rectangle {
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.right: parent.right
+                        Layout.alignment: Qt.AlignVCenter
                         height: 28
-                        width: popoutPortalRow.implicitWidth + 18
-                        radius: 14
+                        width: popoutPortalRow.implicitWidth + Theme.spacingL
+                        radius: Theme.cornerRadius / 2
                         color: popoutPortalMouse.containsMouse ? Theme.surfaceContainerHighest : Theme.surfaceContainer
 
                         Row {
                             id: popoutPortalRow
                             anchors.centerIn: parent
-                            spacing: 5
+                            spacing: Theme.spacingXS
 
                             DankIcon {
                                 name: "open_in_new"
@@ -682,7 +689,7 @@ PluginComponent {
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 DankIcon {
                                     name: "solar_power"
-                                    color: "#f59e0b"
+                                    color: Theme.warning
                                     size: Theme.iconSize - 6
                                     anchors.verticalCenter: parent.verticalCenter
                                 }
@@ -697,7 +704,7 @@ PluginComponent {
                                 text: root.formatWatts(root.pvPowerW)
                                 font.pixelSize: Theme.fontSizeLarge
                                 font.weight: Font.Bold
-                                color: "#f59e0b"
+                                color: Theme.warning
                                 anchors.horizontalCenter: parent.horizontalCenter
                             }
                             StyledText {
@@ -724,7 +731,7 @@ PluginComponent {
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 DankIcon {
                                     name: root.getBatteryIcon(root.batterySoc, root.batteryChargeW > 0)
-                                    color: root.batteryChargeW > 0 ? "#10b981" : (root.batteryDischargeW > 0 ? "#3b82f6" : Theme.surfaceVariantText)
+                                    color: root.batteryChargeW > 0 ? Theme.success : (root.batteryDischargeW > 0 ? Theme.info : Theme.surfaceVariantText)
                                     size: Theme.iconSize - 6
                                     anchors.verticalCenter: parent.verticalCenter
                                 }
@@ -739,7 +746,7 @@ PluginComponent {
                                 text: root.batteryChargeW > 0 ? `+${root.formatWatts(root.batteryChargeW)}` : (root.batteryDischargeW > 0 ? `-${root.formatWatts(root.batteryDischargeW)}` : "0 W")
                                 font.pixelSize: Theme.fontSizeLarge
                                 font.weight: Font.Bold
-                                color: root.batteryChargeW > 0 ? "#10b981" : (root.batteryDischargeW > 0 ? "#3b82f6" : Theme.surfaceText)
+                                color: root.batteryChargeW > 0 ? Theme.success : (root.batteryDischargeW > 0 ? Theme.info : Theme.surfaceText)
                                 anchors.horizontalCenter: parent.horizontalCenter
                             }
                             StyledText {
@@ -766,7 +773,7 @@ PluginComponent {
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 DankIcon {
                                     name: "home"
-                                    color: "#8b5cf6"
+                                    color: Theme.secondary
                                     size: Theme.iconSize - 6
                                     anchors.verticalCenter: parent.verticalCenter
                                 }
@@ -781,7 +788,7 @@ PluginComponent {
                                 text: root.formatWatts(root.houseConsumptionW)
                                 font.pixelSize: Theme.fontSizeLarge
                                 font.weight: Font.Bold
-                                color: "#8b5cf6"
+                                color: Theme.secondary
                                 anchors.horizontalCenter: parent.horizontalCenter
                             }
                             StyledText {
@@ -808,7 +815,7 @@ PluginComponent {
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 DankIcon {
                                     name: "electric_bolt"
-                                    color: root.gridPowerW > 0 ? "#10b981" : (root.gridPowerW < 0 ? "#ef4444" : Theme.surfaceVariantText)
+                                    color: root.gridPowerW > 0 ? Theme.success : (root.gridPowerW < 0 ? Theme.error : Theme.surfaceVariantText)
                                     size: Theme.iconSize - 6
                                     anchors.verticalCenter: parent.verticalCenter
                                 }
@@ -823,7 +830,7 @@ PluginComponent {
                                 text: root.gridPowerW > 0 ? `+${root.formatWatts(root.gridPowerW)}` : (root.gridPowerW < 0 ? `-${root.formatWatts(root.gridPowerW)}` : "0 W")
                                 font.pixelSize: Theme.fontSizeLarge
                                 font.weight: Font.Bold
-                                color: root.gridPowerW > 0 ? "#10b981" : (root.gridPowerW < 0 ? "#ef4444" : Theme.surfaceText)
+                                color: root.gridPowerW > 0 ? Theme.success : (root.gridPowerW < 0 ? Theme.error : Theme.surfaceText)
                                 anchors.horizontalCenter: parent.horizontalCenter
                             }
                             StyledText {
@@ -861,23 +868,23 @@ PluginComponent {
                                 spacing: Theme.spacingS
                                 Row {
                                     spacing: 3
-                                    Rectangle { width: 8; height: 8; radius: 4; color: "#f59e0b"; anchors.verticalCenter: parent.verticalCenter }
+                                    Rectangle { width: 8; height: 8; radius: 4; color: Theme.warning; anchors.verticalCenter: parent.verticalCenter }
                                     StyledText { text: "PV (W)"; font.pixelSize: Theme.fontSizeSmall - 3; color: Theme.surfaceVariantText }
                                 }
                                 Row {
                                     spacing: 3
-                                    Rectangle { width: 8; height: 8; radius: 4; color: "#8b5cf6"; anchors.verticalCenter: parent.verticalCenter }
+                                    Rectangle { width: 8; height: 8; radius: 4; color: Theme.secondary; anchors.verticalCenter: parent.verticalCenter }
                                     StyledText { text: "Load (W)"; font.pixelSize: Theme.fontSizeSmall - 3; color: Theme.surfaceVariantText }
                                 }
                                 Row {
                                     spacing: 3
-                                    Rectangle { width: 8; height: 8; radius: 4; color: "#0284c7"; anchors.verticalCenter: parent.verticalCenter }
+                                    Rectangle { width: 8; height: 8; radius: 4; color: Theme.info; anchors.verticalCenter: parent.verticalCenter }
                                     StyledText { text: "Grid (+/-)"; font.pixelSize: Theme.fontSizeSmall - 3; color: Theme.surfaceVariantText }
                                 }
                                 Row {
                                     spacing: 3
-                                    Rectangle { width: 8; height: 8; radius: 4; color: "#10b981"; anchors.verticalCenter: parent.verticalCenter }
-                                    StyledText { text: "Bat (%)"; font.pixelSize: Theme.fontSizeSmall - 3; color: "#10b981" }
+                                    Rectangle { width: 8; height: 8; radius: 4; color: Theme.success; anchors.verticalCenter: parent.verticalCenter }
+                                    StyledText { text: "Bat (%)"; font.pixelSize: Theme.fontSizeSmall - 3; color: Theme.success }
                                 }
                             }
                         }
@@ -909,8 +916,8 @@ PluginComponent {
                                 ctx.clearRect(0, 0, width, height);
 
                                 if (!pvData || pvData.length < 2) {
-                                    ctx.fillStyle = Qt.rgba(1, 1, 1, 0.4);
-                                    ctx.font = "12px sans-serif";
+                                    ctx.fillStyle = Qt.rgba(Theme.surfaceText.r, Theme.surfaceText.g, Theme.surfaceText.b, 0.4);
+                                    ctx.font = `${Theme.fontSizeSmall}px ${Theme.fontFamily || "sans-serif"}`;
                                     ctx.textAlign = "center";
                                     ctx.fillText("Gathering day data points...", width / 2, height / 2);
                                     return;
@@ -959,7 +966,7 @@ PluginComponent {
                                 // Draw Zero Baseline if minVal < 0
                                 if (minVal < 0) {
                                     const yZero = getY(0);
-                                    ctx.strokeStyle = Qt.rgba(1, 1, 1, 0.2);
+                                    ctx.strokeStyle = Qt.rgba(Theme.outline.r, Theme.outline.g, Theme.outline.b, 0.25);
                                     ctx.lineWidth = 1;
                                     ctx.setLineDash([2, 4]);
                                     ctx.beginPath();
@@ -968,16 +975,16 @@ PluginComponent {
                                     ctx.stroke();
                                     ctx.setLineDash([]);
 
-                                    ctx.fillStyle = Qt.rgba(1, 1, 1, 0.4);
-                                    ctx.font = "9px sans-serif";
+                                    ctx.fillStyle = Qt.rgba(Theme.surfaceText.r, Theme.surfaceText.g, Theme.surfaceText.b, 0.5);
+                                    ctx.font = `${Math.max(9, Math.round(Theme.fontSizeSmall * 0.75))}px ${Theme.fontFamily || "sans-serif"}`;
                                     ctx.textAlign = "left";
                                     ctx.fillText("0 W", padLeft + 2, yZero - 2);
                                 }
 
                                 // 1. Draw Solar PV Area Gradient & Line
                                 const gradPv = ctx.createLinearGradient(0, padTop, 0, padTop + chartH);
-                                gradPv.addColorStop(0, Qt.rgba(0.96, 0.62, 0.04, 0.35));
-                                gradPv.addColorStop(1, Qt.rgba(0.96, 0.62, 0.04, 0.02));
+                                gradPv.addColorStop(0, Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.35));
+                                gradPv.addColorStop(1, Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.02));
 
                                 ctx.fillStyle = gradPv;
                                 ctx.beginPath();
@@ -991,7 +998,7 @@ PluginComponent {
                                 ctx.closePath();
                                 ctx.fill();
 
-                                ctx.strokeStyle = "#f59e0b";
+                                ctx.strokeStyle = Theme.warning;
                                 ctx.lineWidth = 2.0;
                                 ctx.beginPath();
                                 for (let i = 0; i < n; i++) {
@@ -1001,9 +1008,9 @@ PluginComponent {
                                 }
                                 ctx.stroke();
 
-                                // 2. Draw House Load Line (Purple)
+                                // 2. Draw House Load Line
                                 if (loadData && loadData.length === n) {
-                                    ctx.strokeStyle = "#8b5cf6";
+                                    ctx.strokeStyle = Theme.secondary;
                                     ctx.lineWidth = 1.6;
                                     ctx.setLineDash([3, 3]);
                                     ctx.beginPath();
@@ -1016,10 +1023,9 @@ PluginComponent {
                                     ctx.setLineDash([]);
                                 }
 
-                                // 3. Draw Grid Power Line (Sky Blue #0284c7)
-                                // Positive = Exporting to grid; Negative = Importing from grid
+                                // 3. Draw Grid Power Line
                                 if (gridData && gridData.length === n) {
-                                    ctx.strokeStyle = "#0284c7";
+                                    ctx.strokeStyle = Theme.info;
                                     ctx.lineWidth = 1.6;
                                     ctx.beginPath();
                                     for (let k = 0; k < n; k++) {
@@ -1030,8 +1036,7 @@ PluginComponent {
                                     ctx.stroke();
                                 }
 
-                                // 4. Draw Battery SoC % Line & Right Y-Axis (Emerald #10b981)
-                                // Scaled 0 to 100% on the right margin
+                                // 4. Draw Battery SoC % Line & Right Y-Axis
                                 if (socData && socData.length === n) {
                                     function getSocY(soc) {
                                         const clamped = Math.max(0, Math.min(100, soc));
@@ -1039,15 +1044,15 @@ PluginComponent {
                                     }
 
                                     // Right Y-axis labels: 100%, 50%, 0%
-                                    ctx.fillStyle = Qt.rgba(0.06, 0.72, 0.50, 0.8);
-                                    ctx.font = "9px sans-serif";
+                                    ctx.fillStyle = Qt.rgba(Theme.success.r, Theme.success.g, Theme.success.b, 0.85);
+                                    ctx.font = `${Math.max(9, Math.round(Theme.fontSizeSmall * 0.75))}px ${Theme.fontFamily || "sans-serif"}`;
                                     ctx.textAlign = "left";
                                     ctx.fillText("100%", padLeft + chartW + 4, padTop + 8);
                                     ctx.fillText("50%", padLeft + chartW + 4, padTop + (chartH / 2) + 3);
                                     ctx.fillText("0%", padLeft + chartW + 4, padTop + chartH);
 
                                     // SoC curve
-                                    ctx.strokeStyle = "#10b981";
+                                    ctx.strokeStyle = Theme.success;
                                     ctx.lineWidth = 1.8;
                                     ctx.beginPath();
                                     for (let m = 0; m < n; m++) {
@@ -1112,7 +1117,7 @@ PluginComponent {
                                             text: `${modelData.pv_kwh}k`
                                             font.pixelSize: Theme.fontSizeSmall - 3
                                             font.weight: Font.Bold
-                                            color: "#f59e0b"
+                                            color: Theme.warning
                                             anchors.horizontalCenter: parent.horizontalCenter
                                         }
 
@@ -1126,8 +1131,8 @@ PluginComponent {
                                                 anchors.bottom: parent.bottom
                                                 // Max day scale ~35 kWh
                                                 height: Math.max(4, Math.min(parent.height, (modelData.pv_kwh / 35.0) * parent.height))
-                                                radius: 4
-                                                color: "#f59e0b"
+                                                radius: Theme.cornerRadius / 3
+                                                color: Theme.warning
                                             }
                                         }
 

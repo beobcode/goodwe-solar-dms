@@ -31,8 +31,12 @@ logger = logging.getLogger("goodwe_poller")
 DEFAULT_HOST = os.environ.get("GOODWE_INVERTER_IP", "192.168.1.100")
 DEFAULT_PORT = int(os.environ.get("GOODWE_INVERTER_PORT", "502"))
 DEFAULT_INTERVAL = float(os.environ.get("GOODWE_POLL_INTERVAL", "3.0"))
-DEFAULT_OUTPUT_FILE = os.environ.get("GOODWE_OUTPUT_FILE", str(Path.home() / ".cache" / "goodwe_solar.json"))
-HISTORY_FILE = os.environ.get("GOODWE_HISTORY_FILE", str(Path.home() / ".cache" / "goodwe_solar_history.json"))
+
+_xdg_cache = os.environ.get("XDG_CACHE_HOME")
+_cache_dir = Path(_xdg_cache) if _xdg_cache else Path.home() / ".cache"
+
+DEFAULT_OUTPUT_FILE = os.environ.get("GOODWE_OUTPUT_FILE", str(_cache_dir / "goodwe_solar.json"))
+HISTORY_FILE = os.environ.get("GOODWE_HISTORY_FILE", str(_cache_dir / "goodwe_solar_history.json"))
 
 
 def clean_val(val, default=0):
@@ -134,7 +138,7 @@ def parse_inverter_data(inv, runtime, history):
 
     # Battery metrics
     # In GoodWe Modbus: pbattery1 is negative when charging, positive when discharging.
-    # User requirement: + means charging, - means discharging.
+    # Sign convention: positive indicates charging, negative indicates discharging.
     raw_pbattery = clean_val(runtime.get("pbattery1"), 0)
     bat_charge_w = int(abs(raw_pbattery)) if raw_pbattery < 0 else 0
     bat_discharge_w = int(raw_pbattery) if raw_pbattery > 0 else 0
@@ -148,8 +152,7 @@ def parse_inverter_data(inv, runtime, history):
     vbattery = clean_val(runtime.get("vbattery1"), 0.0)
     ibattery = clean_val(runtime.get("ibattery1"), 0.0)
 
-    # Grid metrics
-    # User requirement: + means sending to grid (export), - means buying from grid (import)
+    # Grid metrics: positive indicates export to grid, negative indicates import from grid.
     active_power = clean_val(runtime.get("active_power"), None)
     if active_power is not None:
         signed_grid_w = int(active_power)

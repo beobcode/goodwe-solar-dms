@@ -39,6 +39,13 @@ DesktopPluginComponent {
     property var historyLoad: []
     property string semsPortalUrl: pluginData.portalUrl || "https://au-semsplus.goodwe.com/"
 
+    readonly property string cacheFilePath: {
+        const xdg = Quickshell.env("XDG_CACHE_HOME");
+        const home = Quickshell.env("HOME") || "";
+        const base = (xdg && xdg.length > 0) ? xdg : (home + "/.cache");
+        return base + "/goodwe_solar.json";
+    }
+
     function formatWatts(w) {
         const absW = Math.abs(w);
         if (absW >= 1000) {
@@ -58,55 +65,47 @@ DesktopPluginComponent {
         return "battery_alert";
     }
 
-    // Polling process
-    Timer {
-        id: pollTimer
-        interval: 3000
-        running: true
-        repeat: true
-        triggeredOnStart: true
-        onTriggered: {
-            if (!fetchProcess.running) {
-                fetchProcess.running = true;
+    function parseTelemetry() {
+        try {
+            const str = cacheFileView.text();
+            if (!str || !str.trim()) {
+                root.isOnline = false;
+                return;
             }
+            const data = JSON.parse(str);
+            const nowSec = Math.floor(Date.now() / 1000);
+            const ts = data.timestamp || 0;
+            root.isOnline = (data.online ?? true) && ((nowSec - ts) < 30);
+            root.lastUpdated = data.last_updated ?? "";
+            root.pvPowerW = data.pv_power_w ?? 0;
+            root.batteryPowerW = data.battery_power_w ?? 0;
+            root.batteryChargeW = data.battery_charge_w ?? 0;
+            root.batteryDischargeW = data.battery_discharge_w ?? 0;
+            root.batterySoc = data.battery_soc ?? 0;
+            root.batteryMode = data.battery_mode ?? "Idle";
+            root.houseConsumptionW = data.house_consumption_w ?? 0;
+            root.gridPowerW = data.grid_power_w ?? 0;
+            root.gridExportW = data.grid_export_w ?? 0;
+            root.gridImportW = data.grid_import_w ?? 0;
+            root.eDayPvKwh = data.e_day_pv_kwh ?? 0.0;
+            root.eDayExpKwh = data.e_day_exp_kwh ?? 0.0;
+            root.eDayLoadKwh = data.e_day_load_kwh ?? 0.0;
+            root.hasFault = data.has_fault ?? false;
+            root.faultSummary = data.fault_summary ?? "Normal";
+
+            root.historyPv = data.history_pv ?? [];
+            root.historyLoad = data.history_load ?? [];
+        } catch (e) {
+            root.isOnline = false;
         }
     }
 
-    Process {
-        id: fetchProcess
-        command: ["sh", "-c", "cat \"${XDG_CACHE_HOME:-$HOME/.cache}/goodwe_solar.json\" 2>/dev/null"]
-        running: false
-
-        stdout: StdioCollector {
-            onStreamFinished: {
-                const str = text.trim();
-                if (!str) return;
-                try {
-                    const data = JSON.parse(str);
-                    root.isOnline = data.online ?? true;
-                    root.lastUpdated = data.last_updated ?? "";
-                    root.pvPowerW = data.pv_power_w ?? 0;
-                    root.batteryPowerW = data.battery_power_w ?? 0;
-                    root.batteryChargeW = data.battery_charge_w ?? 0;
-                    root.batteryDischargeW = data.battery_discharge_w ?? 0;
-                    root.batterySoc = data.battery_soc ?? 0;
-                    root.batteryMode = data.battery_mode ?? "Idle";
-                    root.houseConsumptionW = data.house_consumption_w ?? 0;
-                    root.gridPowerW = data.grid_power_w ?? 0;
-                    root.gridExportW = data.grid_export_w ?? 0;
-                    root.gridImportW = data.grid_import_w ?? 0;
-                    root.eDayPvKwh = data.e_day_pv_kwh ?? 0.0;
-                    root.eDayExpKwh = data.e_day_exp_kwh ?? 0.0;
-                    root.eDayLoadKwh = data.e_day_load_kwh ?? 0.0;
-                    root.hasFault = data.has_fault ?? false;
-                    root.faultSummary = data.fault_summary ?? "Normal";
-
-                    root.historyPv = data.history_pv ?? [];
-                    root.historyLoad = data.history_load ?? [];
-                } catch (e) {
-                }
-            }
-        }
+    FileView {
+        id: cacheFileView
+        path: root.cacheFilePath
+        watchChanges: true
+        onLoaded: root.parseTelemetry()
+        onFileChanged: cacheFileView.reload()
     }
 
     // Card background
@@ -132,7 +131,7 @@ DesktopPluginComponent {
                     DankIcon {
                         name: root.hasFault ? "error" : "solar_power"
                         size: Theme.iconSize - 2
-                        color: root.hasFault ? Theme.error : (root.isOnline ? "#f59e0b" : Theme.surfaceVariantText)
+                        color: root.hasFault ? Theme.error : (root.isOnline ? Theme.warning : Theme.surfaceVariantText)
                         anchors.verticalCenter: parent.verticalCenter
                     }
                     StyledText {
@@ -146,16 +145,43 @@ DesktopPluginComponent {
 
                 Item { Layout.fillWidth: true }
 
-                // SEMS Portal Website link
+                Rectangle {
+                    visible: root.isOnline
+                    height: 22
+                    width: yieldRow.implicitWidth + Theme.spacingS * 2
+                    radius: Theme.cornerRadius / 2
+                    color: Theme.surfaceContainerHighest
+
+                    Row {
+                        id: yieldRow
+                        anchors.centerIn: parent
+                        spacing: 3
+                        DankIcon {
+                            name: "wb_sunny"
+                            size: 14
+                            color: Theme.warning
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+                        StyledText {
+                            text: `${root.eDayPvKwh} kWh`
+                            font.pixelSize: Theme.fontSizeSmall - 2
+                            font.weight: Font.Bold
+                            color: Theme.surfaceText
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+                    }
+                }
+
+                // External Link to GoodWe SEMS Portal
                 Rectangle {
                     height: 22
-                    width: 24
-                    radius: 11
+                    width: 22
+                    radius: Theme.cornerRadius / 2
                     color: desktopPortalMouse.containsMouse ? Theme.surfaceContainerHighest : "transparent"
 
                     DankIcon {
                         name: "open_in_new"
-                        size: Theme.iconSize - 6
+                        size: 14
                         color: desktopPortalMouse.containsMouse ? Theme.primary : Theme.surfaceVariantText
                         anchors.centerIn: parent
                     }
@@ -166,23 +192,6 @@ DesktopPluginComponent {
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         onClicked: Qt.openUrlExternally(root.semsPortalUrl)
-                    }
-                }
-
-                // Today's kWh Badge
-                Rectangle {
-                    height: 22
-                    width: todayYieldText.implicitWidth + 12
-                    radius: 11
-                    color: Theme.surfaceContainerHighest
-
-                    StyledText {
-                        id: todayYieldText
-                        anchors.centerIn: parent
-                        text: `${root.eDayPvKwh} kWh`
-                        font.pixelSize: Theme.fontSizeSmall - 2
-                        font.weight: Font.Medium
-                        color: Theme.surfaceText
                     }
                 }
             }
@@ -197,7 +206,7 @@ DesktopPluginComponent {
                         text: root.isOnline ? root.formatWatts(root.pvPowerW) : "Offline"
                         font.pixelSize: Theme.fontSizeLarge + 6
                         font.weight: Font.Bold
-                        color: root.pvPowerW > 500 ? "#f59e0b" : Theme.surfaceText
+                        color: root.pvPowerW > 500 ? Theme.warning : Theme.surfaceText
                     }
 
                     StyledText {
@@ -211,11 +220,11 @@ DesktopPluginComponent {
 
                 // Battery Badge
                 Row {
-                    spacing: 4
+                    spacing: Theme.spacingXS
                     DankIcon {
                         name: root.getBatteryIcon(root.batterySoc, root.batteryChargeW > 0)
                         size: Theme.iconSize - 4
-                        color: root.batteryChargeW > 0 ? "#10b981" : (root.batteryDischargeW > 0 ? "#3b82f6" : Theme.surfaceVariantText)
+                        color: root.batteryChargeW > 0 ? Theme.success : (root.batteryDischargeW > 0 ? Theme.info : Theme.surfaceVariantText)
                         anchors.verticalCenter: parent.verticalCenter
                     }
                     StyledText {
@@ -253,8 +262,8 @@ DesktopPluginComponent {
                         ctx.clearRect(0, 0, width, height);
 
                         if (!pvData || pvData.length < 2) {
-                            ctx.fillStyle = Qt.rgba(1, 1, 1, 0.3);
-                            ctx.font = "11px sans-serif";
+                            ctx.fillStyle = Qt.rgba(Theme.surfaceText.r, Theme.surfaceText.g, Theme.surfaceText.b, 0.35);
+                            ctx.font = `${Theme.fontSizeSmall - 1}px ${Theme.fontFamily || "sans-serif"}`;
                             ctx.textAlign = "center";
                             ctx.fillText("Tracking daily curve...", width / 2, height / 2);
                             return;
@@ -265,12 +274,12 @@ DesktopPluginComponent {
                         maxVal *= 1.15;
 
                         const n = pvData.length;
-                        const stepX = width / (n - 1);
+                        const stepX = width / Math.max(1, n - 1);
 
                         // Gradient fill
                         const grad = ctx.createLinearGradient(0, 0, 0, height);
-                        grad.addColorStop(0, Qt.rgba(0.96, 0.62, 0.04, 0.35));
-                        grad.addColorStop(1, Qt.rgba(0.96, 0.62, 0.04, 0.02));
+                        grad.addColorStop(0, Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.35));
+                        grad.addColorStop(1, Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.02));
 
                         ctx.fillStyle = grad;
                         ctx.beginPath();
@@ -285,7 +294,7 @@ DesktopPluginComponent {
                         ctx.fill();
 
                         // Solar Line
-                        ctx.strokeStyle = "#f59e0b";
+                        ctx.strokeStyle = Theme.warning;
                         ctx.lineWidth = 2.0;
                         ctx.beginPath();
                         for (let i = 0; i < n; i++) {
@@ -319,7 +328,7 @@ DesktopPluginComponent {
                         text: root.batteryChargeW > 0 ? `+${root.formatWatts(root.batteryChargeW)}` : (root.batteryDischargeW > 0 ? `-${root.formatWatts(root.batteryDischargeW)}` : "Idle")
                         font.pixelSize: Theme.fontSizeSmall
                         font.weight: Font.Bold
-                        color: root.batteryChargeW > 0 ? "#10b981" : (root.batteryDischargeW > 0 ? "#3b82f6" : Theme.surfaceText)
+                        color: root.batteryChargeW > 0 ? Theme.success : (root.batteryDischargeW > 0 ? Theme.info : Theme.surfaceText)
                         anchors.horizontalCenter: parent.horizontalCenter
                     }
                 }
@@ -338,7 +347,7 @@ DesktopPluginComponent {
                         text: root.formatWatts(root.houseConsumptionW)
                         font.pixelSize: Theme.fontSizeSmall
                         font.weight: Font.Bold
-                        color: "#8b5cf6"
+                        color: Theme.secondary
                         anchors.horizontalCenter: parent.horizontalCenter
                     }
                 }
@@ -357,7 +366,7 @@ DesktopPluginComponent {
                         text: root.gridPowerW > 0 ? `+${root.formatWatts(root.gridPowerW)}` : (root.gridPowerW < 0 ? `-${root.formatWatts(root.gridPowerW)}` : "0 W")
                         font.pixelSize: Theme.fontSizeSmall
                         font.weight: Font.Bold
-                        color: root.gridPowerW > 0 ? "#10b981" : (root.gridPowerW < 0 ? "#ef4444" : Theme.surfaceText)
+                        color: root.gridPowerW > 0 ? Theme.success : (root.gridPowerW < 0 ? Theme.error : Theme.surfaceText)
                         anchors.horizontalCenter: parent.horizontalCenter
                     }
                 }
