@@ -74,6 +74,9 @@ PluginComponent {
     property bool showDailyEnergy: pluginData.showDailyEnergy ?? true
 
     readonly property string cacheFilePath: {
+        if (pluginData.cacheFilePath && pluginData.cacheFilePath.trim().length > 0) {
+            return pluginData.cacheFilePath.trim();
+        }
         const xdg = Quickshell.env("XDG_CACHE_HOME");
         const home = Quickshell.env("HOME") || "";
         const base = (xdg && xdg.length > 0) ? xdg : (home + "/.cache");
@@ -81,6 +84,12 @@ PluginComponent {
     }
 
     readonly property string historyFilePath: {
+        if (pluginData.cacheFilePath && pluginData.cacheFilePath.trim().length > 0) {
+            const custom = pluginData.cacheFilePath.trim();
+            const lastSlash = custom.lastIndexOf("/");
+            const dir = lastSlash >= 0 ? custom.substring(0, lastSlash) : "";
+            return (dir ? dir + "/" : "") + "goodwe_solar_history.json";
+        }
         const xdg = Quickshell.env("XDG_CACHE_HOME");
         const home = Quickshell.env("HOME") || "";
         const base = (xdg && xdg.length > 0) ? xdg : (home + "/.cache");

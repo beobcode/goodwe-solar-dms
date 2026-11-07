@@ -44,4 +44,12 @@ PluginSettings {
         description: "Display today's total kWh generated in the bar pill"
         defaultValue: true
     }
+
+    StringSetting {
+        settingKey: "cacheFilePath"
+        label: "Telemetry Cache File Path"
+        description: "Custom path to goodwe_solar.json if changed via GOODWE_OUTPUT_FILE or --output in poller"
+        placeholder: "Leave empty for default (~/.cache/goodwe_solar.json)"
+        defaultValue: ""
+    }
 }
