@@ -109,7 +109,7 @@ PluginComponent {
         return bStr;
     }
     ccWidgetIsActive: isOnline && (pvPowerW > 0 || batteryPowerW !== 0)
-    ccDetailHeight: 340
+    ccDetailHeight: Theme.iconSizeLarge * 10 + Theme.spacingXL
 
     onCcWidgetToggled: {
         cacheFileView.reload();
@@ -126,6 +126,7 @@ PluginComponent {
             const data = JSON.parse(str);
             const nowSec = Math.floor(Date.now() / 1000);
             const ts = data.timestamp || 0;
+            root.lastTelemetryTimestamp = ts;
             // Mark offline if telemetry is older than 30 seconds or poller flagged offline
             root.isOnline = (data.online ?? true) && ((nowSec - ts) < 30);
             root.lastUpdated = data.last_updated ?? "";
@@ -181,6 +182,25 @@ PluginComponent {
         } catch (e) {
             root.isOnline = false;
         }
+    }
+
+    property int lastTelemetryTimestamp: 0
+
+    function checkStaleness() {
+        if (!root.isOnline && root.lastTelemetryTimestamp === 0) return;
+        const nowSec = Math.floor(Date.now() / 1000);
+        if (root.lastTelemetryTimestamp > 0 && (nowSec - root.lastTelemetryTimestamp) >= 30) {
+            root.isOnline = false;
+        }
+    }
+
+    // Periodic staleness check every 15s in case poller stops or disconnects without rewriting file
+    Timer {
+        id: stalenessTimer
+        interval: 15000
+        repeat: true
+        running: true
+        onTriggered: root.checkStaleness()
     }
 
     // Reactively watch cache file changes without continuous polling
@@ -296,7 +316,7 @@ PluginComponent {
     ccDetailContent: Component {
         Rectangle {
             id: detailRoot
-            implicitHeight: 330
+            implicitHeight: Theme.iconSizeLarge * 10 + Theme.spacingM
             radius: Theme.cornerRadius
             color: Theme.surfaceContainerHigh
 
@@ -335,41 +355,15 @@ PluginComponent {
                     Item { Layout.fillWidth: true }
 
                     // Button to open GoodWe SEMS Portal in browser
-                    Rectangle {
+                    DankButton {
                         Layout.alignment: Qt.AlignVCenter
-                        height: 28
-                        width: portalRow.implicitWidth + Theme.spacingL
-                        radius: Theme.cornerRadius / 2
-                        color: portalMouse.containsMouse ? Theme.surfaceContainerHighest : Theme.surfaceContainer
-
-                        Row {
-                            id: portalRow
-                            anchors.centerIn: parent
-                            spacing: Theme.spacingXS
-
-                            DankIcon {
-                                name: "open_in_new"
-                                size: Theme.iconSize - 6
-                                color: portalMouse.containsMouse ? Theme.primary : Theme.surfaceVariantText
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-
-                            StyledText {
-                                text: "SEMS Portal"
-                                font.pixelSize: Theme.fontSizeSmall - 1
-                                font.weight: Font.Medium
-                                color: portalMouse.containsMouse ? Theme.primary : Theme.surfaceText
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-                        }
-
-                        MouseArea {
-                            id: portalMouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: Qt.openUrlExternally(root.semsPortalUrl)
-                        }
+                        text: "SEMS Portal"
+                        iconName: "open_in_new"
+                        buttonHeight: Theme.iconSizeSmall + Theme.spacingS
+                        horizontalPadding: Theme.spacingM
+                        backgroundColor: Theme.surfaceContainer
+                        textColor: Theme.primary
+                        onClicked: Qt.openUrlExternally(root.semsPortalUrl)
                     }
                 }
 
@@ -382,7 +376,7 @@ PluginComponent {
                     // Solar Tile
                     Rectangle {
                         width: (parent.width - Theme.spacingS) / 2
-                        height: 60
+                        height: Theme.iconSizeLarge * 2
                         radius: Theme.cornerRadius
                         color: Theme.surfaceContainerHighest
 
@@ -415,7 +409,7 @@ PluginComponent {
                     // Battery Tile
                     Rectangle {
                         width: (parent.width - Theme.spacingS) / 2
-                        height: 60
+                        height: Theme.iconSizeLarge * 2
                         radius: Theme.cornerRadius
                         color: Theme.surfaceContainerHighest
 
@@ -448,7 +442,7 @@ PluginComponent {
                     // House Consumption Tile
                     Rectangle {
                         width: (parent.width - Theme.spacingS) / 2
-                        height: 60
+                        height: Theme.iconSizeLarge * 2
                         radius: Theme.cornerRadius
                         color: Theme.surfaceContainerHighest
 
@@ -481,7 +475,7 @@ PluginComponent {
                     // Grid Flow Tile
                     Rectangle {
                         width: (parent.width - Theme.spacingS) / 2
-                        height: 60
+                        height: Theme.iconSizeLarge * 2
                         radius: Theme.cornerRadius
                         color: Theme.surfaceContainerHighest
 
@@ -515,7 +509,7 @@ PluginComponent {
                 // Daily Energy Statistics Row
                 Rectangle {
                     width: parent.width
-                    height: 54
+                    height: Theme.iconSizeLarge + Theme.spacingXL
                     radius: Theme.cornerRadius
                     color: Theme.surfaceContainerHighest
 
@@ -599,9 +593,9 @@ PluginComponent {
     }
 
     // 4. Centered Dash / Popout Dialog
-    // Sized generously (720x520) with real-time curves & daily bar chart
-    popoutWidth: 720
-    popoutHeight: 520
+    // Sized generously with real-time curves & daily bar chart derived from Theme tokens
+    popoutWidth: Theme.iconSizeLarge * 22 + Theme.spacingL
+    popoutHeight: Theme.iconSizeLarge * 16 + Theme.spacingL
 
     popoutContent: Component {
         PopoutComponent {
@@ -631,41 +625,15 @@ PluginComponent {
                     Item { Layout.fillWidth: true }
 
                     // Button to open GoodWe SEMS Portal website in browser
-                    Rectangle {
+                    DankButton {
                         Layout.alignment: Qt.AlignVCenter
-                        height: 28
-                        width: popoutPortalRow.implicitWidth + Theme.spacingL
-                        radius: Theme.cornerRadius / 2
-                        color: popoutPortalMouse.containsMouse ? Theme.surfaceContainerHighest : Theme.surfaceContainer
-
-                        Row {
-                            id: popoutPortalRow
-                            anchors.centerIn: parent
-                            spacing: Theme.spacingXS
-
-                            DankIcon {
-                                name: "open_in_new"
-                                size: Theme.iconSize - 6
-                                color: popoutPortalMouse.containsMouse ? Theme.primary : Theme.surfaceVariantText
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-
-                            StyledText {
-                                text: "Open SEMS Portal"
-                                font.pixelSize: Theme.fontSizeSmall - 1
-                                font.weight: Font.Medium
-                                color: popoutPortalMouse.containsMouse ? Theme.primary : Theme.surfaceText
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-                        }
-
-                        MouseArea {
-                            id: popoutPortalMouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: Qt.openUrlExternally(root.semsPortalUrl)
-                        }
+                        text: "Open SEMS Portal"
+                        iconName: "open_in_new"
+                        buttonHeight: Theme.iconSizeSmall + Theme.spacingS
+                        horizontalPadding: Theme.spacingM
+                        backgroundColor: Theme.surfaceContainer
+                        textColor: Theme.primary
+                        onClicked: Qt.openUrlExternally(root.semsPortalUrl)
                     }
                 }
 
@@ -677,15 +645,15 @@ PluginComponent {
                     // Solar Tile
                     Rectangle {
                         width: (parent.width - Theme.spacingS * 3) / 4
-                        height: 70
+                        height: Theme.iconSizeLarge * 2 + Theme.spacingS
                         radius: Theme.cornerRadius
                         color: Theme.surfaceContainerHighest
 
                         Column {
                             anchors.centerIn: parent
-                            spacing: 2
+                            spacing: Theme.spacingXS / 2
                             Row {
-                                spacing: 4
+                                spacing: Theme.spacingXS
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 DankIcon {
                                     name: "solar_power"
@@ -719,15 +687,15 @@ PluginComponent {
                     // Battery Tile
                     Rectangle {
                         width: (parent.width - Theme.spacingS * 3) / 4
-                        height: 70
+                        height: Theme.iconSizeLarge * 2 + Theme.spacingS
                         radius: Theme.cornerRadius
                         color: Theme.surfaceContainerHighest
 
                         Column {
                             anchors.centerIn: parent
-                            spacing: 2
+                            spacing: Theme.spacingXS / 2
                             Row {
-                                spacing: 4
+                                spacing: Theme.spacingXS
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 DankIcon {
                                     name: root.getBatteryIcon(root.batterySoc, root.batteryChargeW > 0)
@@ -761,15 +729,15 @@ PluginComponent {
                     // Home Load Tile
                     Rectangle {
                         width: (parent.width - Theme.spacingS * 3) / 4
-                        height: 70
+                        height: Theme.iconSizeLarge * 2 + Theme.spacingS
                         radius: Theme.cornerRadius
                         color: Theme.surfaceContainerHighest
 
                         Column {
                             anchors.centerIn: parent
-                            spacing: 2
+                            spacing: Theme.spacingXS / 2
                             Row {
-                                spacing: 4
+                                spacing: Theme.spacingXS
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 DankIcon {
                                     name: "home"
@@ -803,15 +771,15 @@ PluginComponent {
                     // Grid Flow Tile
                     Rectangle {
                         width: (parent.width - Theme.spacingS * 3) / 4
-                        height: 70
+                        height: Theme.iconSizeLarge * 2 + Theme.spacingS
                         radius: Theme.cornerRadius
                         color: Theme.surfaceContainerHighest
 
                         Column {
                             anchors.centerIn: parent
-                            spacing: 2
+                            spacing: Theme.spacingXS / 2
                             Row {
-                                spacing: 4
+                                spacing: Theme.spacingXS
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 DankIcon {
                                     name: "electric_bolt"
@@ -846,44 +814,46 @@ PluginComponent {
                 // Intra-day Solar Generation Graph
                 Rectangle {
                     width: parent.width
-                    height: 200
+                    height: Theme.iconSizeLarge * 6
                     radius: Theme.cornerRadius
                     color: Theme.surfaceContainerHighest
 
                     Column {
                         anchors.fill: parent
                         anchors.margins: Theme.spacingS
-                        spacing: 4
+                        spacing: Theme.spacingXS
 
-                        Row {
+                        RowLayout {
                             width: parent.width
                             StyledText {
                                 text: "Solar, Load, Grid & Battery %"
                                 font.pixelSize: Theme.fontSizeMedium
                                 font.weight: Font.Bold
                                 color: Theme.surfaceText
+                                Layout.alignment: Qt.AlignVCenter
                             }
-                            Item { Layout.fillWidth: true; width: 10 }
+                            Item { Layout.fillWidth: true }
                             Row {
+                                Layout.alignment: Qt.AlignVCenter
                                 spacing: Theme.spacingS
                                 Row {
-                                    spacing: 3
-                                    Rectangle { width: 8; height: 8; radius: 4; color: Theme.warning; anchors.verticalCenter: parent.verticalCenter }
+                                    spacing: Theme.spacingXS / 2
+                                    Rectangle { width: Theme.spacingS; height: Theme.spacingS; radius: Theme.spacingS / 2; color: Theme.warning; anchors.verticalCenter: parent.verticalCenter }
                                     StyledText { text: "PV (W)"; font.pixelSize: Theme.fontSizeSmall - 3; color: Theme.surfaceVariantText }
                                 }
                                 Row {
-                                    spacing: 3
-                                    Rectangle { width: 8; height: 8; radius: 4; color: Theme.secondary; anchors.verticalCenter: parent.verticalCenter }
+                                    spacing: Theme.spacingXS / 2
+                                    Rectangle { width: Theme.spacingS; height: Theme.spacingS; radius: Theme.spacingS / 2; color: Theme.secondary; anchors.verticalCenter: parent.verticalCenter }
                                     StyledText { text: "Load (W)"; font.pixelSize: Theme.fontSizeSmall - 3; color: Theme.surfaceVariantText }
                                 }
                                 Row {
-                                    spacing: 3
-                                    Rectangle { width: 8; height: 8; radius: 4; color: Theme.info; anchors.verticalCenter: parent.verticalCenter }
+                                    spacing: Theme.spacingXS / 2
+                                    Rectangle { width: Theme.spacingS; height: Theme.spacingS; radius: Theme.spacingS / 2; color: Theme.info; anchors.verticalCenter: parent.verticalCenter }
                                     StyledText { text: "Grid (+/-)"; font.pixelSize: Theme.fontSizeSmall - 3; color: Theme.surfaceVariantText }
                                 }
                                 Row {
-                                    spacing: 3
-                                    Rectangle { width: 8; height: 8; radius: 4; color: Theme.success; anchors.verticalCenter: parent.verticalCenter }
+                                    spacing: Theme.spacingXS / 2
+                                    Rectangle { width: Theme.spacingS; height: Theme.spacingS; radius: Theme.spacingS / 2; color: Theme.success; anchors.verticalCenter: parent.verticalCenter }
                                     StyledText { text: "Bat (%)"; font.pixelSize: Theme.fontSizeSmall - 3; color: Theme.success }
                                 }
                             }
@@ -1070,35 +1040,37 @@ PluginComponent {
                 // Daily Yield Summary Bars (Past Days)
                 Rectangle {
                     width: parent.width
-                    height: 120
+                    height: Theme.iconSizeLarge * 4
                     radius: Theme.cornerRadius
                     color: Theme.surfaceContainerHighest
 
                     Column {
                         anchors.fill: parent
                         anchors.margins: Theme.spacingS
-                        spacing: 4
+                        spacing: Theme.spacingXS
 
-                        Row {
+                        RowLayout {
                             width: parent.width
                             StyledText {
                                 text: "Daily Total Generation (kWh)"
                                 font.pixelSize: Theme.fontSizeSmall
                                 font.weight: Font.Bold
                                 color: Theme.surfaceText
+                                Layout.alignment: Qt.AlignVCenter
                             }
-                            Item { Layout.fillWidth: true; width: 10 }
+                            Item { Layout.fillWidth: true }
                             StyledText {
                                 text: `Total PV: ${root.eTotalPvKwh} kWh`
                                 font.pixelSize: Theme.fontSizeSmall - 2
                                 color: Theme.surfaceVariantText
+                                Layout.alignment: Qt.AlignVCenter
                             }
                         }
 
                         // Bar representations
                         Row {
                             width: parent.width
-                            height: parent.height - 28
+                            height: parent.height - Theme.iconSizeSmall - Theme.spacingS
                             spacing: Theme.spacingS
 
                             Repeater {
@@ -1111,7 +1083,7 @@ PluginComponent {
 
                                     Column {
                                         anchors.fill: parent
-                                        spacing: 2
+                                        spacing: Theme.spacingXS / 2
 
                                         StyledText {
                                             text: `${modelData.pv_kwh}k`

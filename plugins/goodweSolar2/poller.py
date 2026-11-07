@@ -315,6 +315,30 @@ def write_atomic_json(filepath, data):
         raise e
 
 
+def write_offline_status(dest_path, message="Inverter Unreachable"):
+    """Write an offline status snapshot so UI immediately reflects disconnection."""
+    data = {
+        "online": False,
+        "timestamp": int(time.time()),
+        "last_updated": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "has_fault": True,
+        "fault_summary": message,
+        "fault_messages": [message],
+        "pv_power_w": 0,
+        "battery_power_w": 0,
+        "battery_charge_w": 0,
+        "battery_discharge_w": 0,
+        "grid_power_w": 0,
+        "grid_export_w": 0,
+        "grid_import_w": 0,
+        "house_consumption_w": 0
+    }
+    try:
+        write_atomic_json(dest_path, data)
+    except Exception as e:
+        logger.warning(f"Failed to write offline state: {e}")
+
+
 async def run_poller(host, port, interval, output_file):
     logger.info(f"Connecting to GoodWe Inverter at {host}:{port}...")
     dest_path = Path(output_file)
@@ -339,12 +363,15 @@ async def run_poller(host, port, interval, output_file):
 
                 except asyncio.TimeoutError:
                     logger.warning("Read runtime data timeout")
+                    write_offline_status(dest_path, "Inverter Read Timeout")
                 except Exception as e:
                     logger.warning(f"Error reading inverter runtime: {e}")
+                    write_offline_status(dest_path, f"Runtime Read Error: {e}")
                     break
                 await asyncio.sleep(interval)
         except Exception as conn_err:
             logger.error(f"Inverter connection error: {conn_err}. Retrying in 5 seconds...")
+            write_offline_status(dest_path, f"Connection Failed: {conn_err}")
             await asyncio.sleep(5)
 
 

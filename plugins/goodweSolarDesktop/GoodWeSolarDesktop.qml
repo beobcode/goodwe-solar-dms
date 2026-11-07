@@ -75,6 +75,7 @@ DesktopPluginComponent {
             const data = JSON.parse(str);
             const nowSec = Math.floor(Date.now() / 1000);
             const ts = data.timestamp || 0;
+            root.lastTelemetryTimestamp = ts;
             root.isOnline = (data.online ?? true) && ((nowSec - ts) < 30);
             root.lastUpdated = data.last_updated ?? "";
             root.pvPowerW = data.pv_power_w ?? 0;
@@ -98,6 +99,24 @@ DesktopPluginComponent {
         } catch (e) {
             root.isOnline = false;
         }
+    }
+
+    property int lastTelemetryTimestamp: 0
+
+    function checkStaleness() {
+        if (!root.isOnline && root.lastTelemetryTimestamp === 0) return;
+        const nowSec = Math.floor(Date.now() / 1000);
+        if (root.lastTelemetryTimestamp > 0 && (nowSec - root.lastTelemetryTimestamp) >= 30) {
+            root.isOnline = false;
+        }
+    }
+
+    Timer {
+        id: stalenessTimer
+        interval: 15000
+        repeat: true
+        running: true
+        onTriggered: root.checkStaleness()
     }
 
     FileView {

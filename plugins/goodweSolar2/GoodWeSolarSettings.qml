@@ -23,6 +23,14 @@ PluginSettings {
         wrapMode: Text.WordWrap
     }
 
+    StringSetting {
+        settingKey: "portalUrl"
+        label: "SEMS Portal URL"
+        description: "URL opened by the SEMS Portal button (e.g. global, AU, or EU portal)"
+        placeholder: "https://au-semsplus.goodwe.com/"
+        defaultValue: "https://au-semsplus.goodwe.com/"
+    }
+
     ToggleSetting {
         settingKey: "showBatteryInBar"
         label: "Show Battery in Status Bar"
