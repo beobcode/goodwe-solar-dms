@@ -375,13 +375,16 @@ PluginComponent {
                     Column {
                         Layout.alignment: Qt.AlignVCenter
                         StyledText {
-                            text: root.hasFault ? "FAULT ACTIVE" : "GoodWe Inverter Online"
+                            text: root.hasFault ? "FAULT ACTIVE" : (root.isOnline ? "GoodWe Inverter Online" : "GoodWe Inverter Offline")
                             font.pixelSize: Theme.fontSizeMedium
                             font.weight: Font.Bold
-                            color: root.hasFault ? Theme.error : Theme.surfaceText
+                            color: root.hasFault ? Theme.error : (root.isOnline ? Theme.surfaceText : Theme.surfaceVariantText)
                         }
                         StyledText {
-                            text: root.faultSummary + (root.lastUpdated ? ` • ${root.lastUpdated}` : "")
+                            text: {
+                                if (!root.isOnline) return "Telemetry Unreachable / Service Inactive";
+                                return root.faultSummary + (root.lastUpdated ? ` • ${root.lastUpdated}` : "");
+                            }
                             font.pixelSize: Theme.fontSizeSmall
                             color: Theme.surfaceVariantText
                         }
@@ -635,8 +638,8 @@ PluginComponent {
     popoutContent: Component {
         PopoutComponent {
             id: popoutComp
-            headerText: "GoodWe Solar & Battery System"
-            detailsText: `${root.faultSummary} • Updated ${root.lastUpdated}`
+            headerText: root.isOnline ? "GoodWe Solar & Battery System" : "GoodWe Solar System (Offline)"
+            detailsText: root.isOnline ? `${root.faultSummary} • Updated ${root.lastUpdated}` : "Inverter unreachable / Poller service inactive"
             showCloseButton: true
 
             Column {
@@ -972,8 +975,8 @@ PluginComponent {
                                 if (minVal < 0) {
                                     const yZero = getY(0);
                                     ctx.strokeStyle = Qt.rgba(Theme.outline.r, Theme.outline.g, Theme.outline.b, 0.25);
-                                    ctx.lineWidth = 1;
-                                    ctx.setLineDash([2, 4]);
+                                    ctx.lineWidth = Math.max(1, Theme.spacingXXS / 2);
+                                    ctx.setLineDash([Theme.spacingXXS, Theme.spacingXS]);
                                     ctx.beginPath();
                                     ctx.moveTo(padLeft, yZero);
                                     ctx.lineTo(padLeft + chartW, yZero);
@@ -1004,7 +1007,7 @@ PluginComponent {
                                 ctx.fill();
 
                                 ctx.strokeStyle = Theme.warning;
-                                ctx.lineWidth = 2.0;
+                                ctx.lineWidth = Theme.spacingXXS;
                                 ctx.beginPath();
                                 for (let i = 0; i < n; i++) {
                                     const px = padLeft + (i * stepX);
@@ -1016,8 +1019,8 @@ PluginComponent {
                                 // 2. Draw House Load Line
                                 if (loadData && loadData.length === n) {
                                     ctx.strokeStyle = Theme.secondary;
-                                    ctx.lineWidth = 1.6;
-                                    ctx.setLineDash([3, 3]);
+                                    ctx.lineWidth = Theme.spacingXXS;
+                                    ctx.setLineDash([Theme.spacingXXS, Theme.spacingXXS]);
                                     ctx.beginPath();
                                     for (let j = 0; j < n; j++) {
                                         const px = padLeft + (j * stepX);
@@ -1031,7 +1034,7 @@ PluginComponent {
                                 // 3. Draw Grid Power Line
                                 if (gridData && gridData.length === n) {
                                     ctx.strokeStyle = Theme.info;
-                                    ctx.lineWidth = 1.6;
+                                    ctx.lineWidth = Theme.spacingXXS;
                                     ctx.beginPath();
                                     for (let k = 0; k < n; k++) {
                                         const px = padLeft + (k * stepX);
@@ -1058,7 +1061,7 @@ PluginComponent {
 
                                     // SoC curve
                                     ctx.strokeStyle = Theme.success;
-                                    ctx.lineWidth = 1.8;
+                                    ctx.lineWidth = Theme.spacingXXS;
                                     ctx.beginPath();
                                     for (let m = 0; m < n; m++) {
                                         const px = padLeft + (m * stepX);

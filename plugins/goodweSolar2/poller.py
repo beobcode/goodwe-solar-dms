@@ -36,7 +36,7 @@ _xdg_cache = os.environ.get("XDG_CACHE_HOME")
 _cache_dir = Path(_xdg_cache) if _xdg_cache else Path.home() / ".cache"
 
 DEFAULT_OUTPUT_FILE = os.environ.get("GOODWE_OUTPUT_FILE", str(_cache_dir / "goodwe_solar.json"))
-HISTORY_FILE = os.environ.get("GOODWE_HISTORY_FILE", str(_cache_dir / "goodwe_solar_history.json"))
+HISTORY_FILE = os.environ.get("GOODWE_HISTORY_FILE", str(_cache_dir / "goodwe_solar_store.json"))
 
 
 def clean_val(val, default=0):

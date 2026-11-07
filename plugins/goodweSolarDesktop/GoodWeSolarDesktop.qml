@@ -342,7 +342,7 @@ DesktopPluginComponent {
 
                         // Solar Line
                         ctx.strokeStyle = Theme.warning;
-                        ctx.lineWidth = 2.0;
+                        ctx.lineWidth = Theme.spacingXXS;
                         ctx.beginPath();
                         for (let i = 0; i < n; i++) {
                             const px = i * stepX;
