@@ -2,11 +2,40 @@
     "id": "goodweSolar2",
     "name": "GoodWe Solar & Battery",
     "description": "Real-time local GoodWe inverter telemetry, battery status, power flow, and fault monitor",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "author": "Dominik",
-    "type": "widget",
-    "capabilities": ["dankbar-widget", "control-center", "monitoring"],
-    "component": "./GoodWeSolarWidget.qml",
+    "type": "composite",
+    "capabilities": ["dankbar-widget", "control-center", "dash-card", "monitoring"],
+    "components": {
+        "widget": "./GoodWeSolarWidget.qml",
+        "dashCard": "./GoodWeSolarDashCard.qml"
+    },
+    "dash": {
+        "title": "GoodWe Solar",
+        "card": {
+            "title": "GoodWe Solar",
+            "w": 2,
+            "h": 2,
+            "minW": 1,
+            "minH": 1,
+            "maxW": 4,
+            "maxH": 3
+        },
+        "options": [
+            {
+                "key": "tone",
+                "text": "Tone",
+                "type": "choice",
+                "def": "",
+                "choices": [
+                    { "value": "", "text": "Surface" },
+                    { "value": "primary", "text": "Primary" },
+                    { "value": "secondary", "text": "Secondary" },
+                    { "value": "tertiary", "text": "Tertiary" }
+                ]
+            }
+        ]
+    },
     "icon": "solar_power",
     "settings": "./GoodWeSolarSettings.qml",
     "requires_dms": ">=2.0.0",

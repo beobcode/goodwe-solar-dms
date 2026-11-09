@@ -15,7 +15,7 @@ DesktopPluginComponent {
     minHeight: 220
 
     property real backgroundOpacity: (pluginData.backgroundOpacity ?? 80) / 100
-    readonly property color tileBg: Theme.withAlpha(Theme.surfaceContainerHigh, backgroundOpacity)
+    readonly property color tileBg: Theme.withAlpha(Theme.cardSurface, backgroundOpacity)
 
     // Telemetry state
     property bool isOnline: false
@@ -206,7 +206,7 @@ DesktopPluginComponent {
                     height: Theme.iconSizeMedium + Theme.spacingXXS
                     width: yieldRow.implicitWidth + Theme.spacingS * 2
                     radius: Theme.cornerRadius / 2
-                    color: Theme.surfaceContainerHighest
+                    color: Theme.chipSurface
 
                     Row {
                         id: yieldRow
@@ -233,7 +233,7 @@ DesktopPluginComponent {
                     height: Theme.iconSizeMedium + Theme.spacingXXS
                     width: Theme.iconSizeMedium + Theme.spacingXXS
                     radius: Theme.cornerRadius / 2
-                    color: desktopPortalMouse.containsMouse ? Theme.surfaceContainerHighest : "transparent"
+                    color: desktopPortalMouse.containsMouse ? Theme.chipSurface : "transparent"
 
                     DIcon {
                         name: "open_in_new"
@@ -306,11 +306,22 @@ DesktopPluginComponent {
 
                     property var pvData: root.historyPv
                     property var loadData: root.historyLoad
+                    property color themeWarning: Theme.warning
+                    property color themeSurfaceText: Theme.surfaceText
 
                     onPvDataChanged: requestPaint()
                     onLoadDataChanged: requestPaint()
                     onWidthChanged: requestPaint()
                     onHeightChanged: requestPaint()
+                    onThemeWarningChanged: requestPaint()
+                    onThemeSurfaceTextChanged: requestPaint()
+
+                    Connections {
+                        target: Theme
+                        function onCurrentThemeChanged() {
+                            miniCanvas.requestPaint();
+                        }
+                    }
 
                     onPaint: {
                         const ctx = getContext("2d");

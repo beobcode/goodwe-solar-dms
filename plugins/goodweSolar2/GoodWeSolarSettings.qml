@@ -7,6 +7,20 @@ PluginSettings {
     id: root
     pluginId: "goodweSolar2"
 
+    function updateDashCard(enabled) {
+        if (typeof SettingsData === "undefined" || !SettingsData.dashCards) return;
+        const cardId = "plugin_goodweSolar2";
+        let cards = SettingsData.dashCards.slice();
+        const exists = cards.some(c => c.id === cardId);
+        if (enabled && !exists) {
+            cards.push({ "id": cardId, "w": 2, "h": 2 });
+            SettingsData.set("dashCards", cards);
+        } else if (!enabled && exists) {
+            cards = cards.filter(c => c.id !== cardId);
+            SettingsData.set("dashCards", cards);
+        }
+    }
+
     StyledText {
         width: parent.width
         text: "GoodWe Solar Monitor Settings"
@@ -32,6 +46,20 @@ PluginSettings {
     }
 
     ToggleSetting {
+        id: dashCardToggle
+        settingKey: "enableDashCard"
+        label: "Dashboard Overview Card (Dash Card)"
+        description: "Add a live GoodWe solar card to the Dashboard Overview (DankDash) grid"
+        defaultValue: false
+
+        onValueChanged: {
+            if (isInitialized) {
+                root.updateDashCard(value);
+            }
+        }
+    }
+
+    ToggleSetting {
         settingKey: "showBatteryInBar"
         label: "Show Battery in Status Bar"
         description: "Display battery percentage alongside solar generation in DankBar"
@@ -51,5 +79,27 @@ PluginSettings {
         description: "Custom path to goodwe_solar.json if changed via GOODWE_OUTPUT_FILE or --output in poller"
         placeholder: "Leave empty for default (~/.cache/goodwe_solar.json)"
         defaultValue: ""
+    }
+
+    Connections {
+        target: typeof SettingsData !== "undefined" ? SettingsData : null
+        function onDashCardsChanged() {
+            if (!SettingsData.dashCards) return;
+            const isPlaced = SettingsData.dashCards.some(c => c.id === "plugin_goodweSolar2");
+            if (dashCardToggle.isInitialized && dashCardToggle.value !== isPlaced) {
+                dashCardToggle.value = isPlaced;
+            }
+        }
+    }
+
+    Component.onCompleted: {
+        Qt.callLater(() => {
+            if (typeof SettingsData !== "undefined" && SettingsData.dashCards) {
+                const isPlaced = SettingsData.dashCards.some(c => c.id === "plugin_goodweSolar2");
+                if (isPlaced) {
+                    dashCardToggle.value = true;
+                }
+            }
+        });
     }
 }

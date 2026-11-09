@@ -364,7 +364,7 @@ PluginComponent {
             id: detailRoot
             implicitHeight: Theme.iconSizeLarge * 10 + Theme.spacingM
             radius: Theme.cornerRadius
-            color: Theme.surfaceContainerHigh
+            color: Theme.cardSurface
 
             Column {
                 anchors.fill: parent
@@ -410,7 +410,7 @@ PluginComponent {
                         iconName: "open_in_new"
                         buttonHeight: Theme.iconSizeSmall + Theme.spacingS
                         horizontalPadding: Theme.spacingM
-                        backgroundColor: Theme.surfaceContainer
+                        backgroundColor: Theme.chipSurface
                         textColor: Theme.primary
                         onClicked: Qt.openUrlExternally(root.semsPortalUrl)
                     }
@@ -427,7 +427,7 @@ PluginComponent {
                         width: (parent.width - Theme.spacingS) / 2
                         height: Theme.iconSizeLarge * 2
                         radius: Theme.cornerRadius
-                        color: Theme.surfaceContainerHighest
+                        color: Theme.chipSurface
 
                         Row {
                             anchors.centerIn: parent
@@ -460,7 +460,7 @@ PluginComponent {
                         width: (parent.width - Theme.spacingS) / 2
                         height: Theme.iconSizeLarge * 2
                         radius: Theme.cornerRadius
-                        color: Theme.surfaceContainerHighest
+                        color: Theme.chipSurface
 
                         Row {
                             anchors.centerIn: parent
@@ -493,7 +493,7 @@ PluginComponent {
                         width: (parent.width - Theme.spacingS) / 2
                         height: Theme.iconSizeLarge * 2
                         radius: Theme.cornerRadius
-                        color: Theme.surfaceContainerHighest
+                        color: Theme.chipSurface
 
                         Row {
                             anchors.centerIn: parent
@@ -526,7 +526,7 @@ PluginComponent {
                         width: (parent.width - Theme.spacingS) / 2
                         height: Theme.iconSizeLarge * 2
                         radius: Theme.cornerRadius
-                        color: Theme.surfaceContainerHighest
+                        color: Theme.chipSurface
 
                         Row {
                             anchors.centerIn: parent
@@ -560,7 +560,7 @@ PluginComponent {
                     width: parent.width
                     height: Theme.iconSizeLarge + Theme.spacingXL
                     radius: Theme.cornerRadius
-                    color: Theme.surfaceContainerHighest
+                    color: Theme.chipSurface
 
                     Row {
                         anchors.centerIn: parent
@@ -680,7 +680,7 @@ PluginComponent {
                         iconName: "open_in_new"
                         buttonHeight: Theme.iconSizeSmall + Theme.spacingS
                         horizontalPadding: Theme.spacingM
-                        backgroundColor: Theme.surfaceContainer
+                        backgroundColor: Theme.chipSurface
                         textColor: Theme.primary
                         onClicked: Qt.openUrlExternally(root.semsPortalUrl)
                     }
@@ -696,7 +696,7 @@ PluginComponent {
                         width: (parent.width - Theme.spacingS * 3) / 4
                         height: Theme.iconSizeLarge * 2 + Theme.spacingS
                         radius: Theme.cornerRadius
-                        color: Theme.surfaceContainerHighest
+                        color: Theme.chipSurface
 
                         Column {
                             anchors.centerIn: parent
@@ -738,7 +738,7 @@ PluginComponent {
                         width: (parent.width - Theme.spacingS * 3) / 4
                         height: Theme.iconSizeLarge * 2 + Theme.spacingS
                         radius: Theme.cornerRadius
-                        color: Theme.surfaceContainerHighest
+                        color: Theme.chipSurface
 
                         Column {
                             anchors.centerIn: parent
@@ -780,7 +780,7 @@ PluginComponent {
                         width: (parent.width - Theme.spacingS * 3) / 4
                         height: Theme.iconSizeLarge * 2 + Theme.spacingS
                         radius: Theme.cornerRadius
-                        color: Theme.surfaceContainerHighest
+                        color: Theme.chipSurface
 
                         Column {
                             anchors.centerIn: parent
@@ -822,7 +822,7 @@ PluginComponent {
                         width: (parent.width - Theme.spacingS * 3) / 4
                         height: Theme.iconSizeLarge * 2 + Theme.spacingS
                         radius: Theme.cornerRadius
-                        color: Theme.surfaceContainerHighest
+                        color: Theme.chipSurface
 
                         Column {
                             anchors.centerIn: parent
@@ -865,7 +865,7 @@ PluginComponent {
                     width: parent.width
                     height: Theme.iconSizeLarge * 6
                     radius: Theme.cornerRadius
-                    color: Theme.surfaceContainerHighest
+                    color: Theme.chipSurface
 
                     Column {
                         anchors.fill: parent
@@ -920,6 +920,11 @@ PluginComponent {
                             property var gridData: root.historyGrid
                             property var socData: root.historySoc
                             property var batData: root.historyBattery
+                            property color themeWarning: Theme.warning
+                            property color themeSecondary: Theme.secondary
+                            property color themeInfo: Theme.info
+                            property color themeSuccess: Theme.success
+                            property color themeSurfaceText: Theme.surfaceText
 
                             onPvDataChanged: requestPaint()
                             onLoadDataChanged: requestPaint()
@@ -928,6 +933,18 @@ PluginComponent {
                             onBatDataChanged: requestPaint()
                             onWidthChanged: requestPaint()
                             onHeightChanged: requestPaint()
+                            onThemeWarningChanged: requestPaint()
+                            onThemeSecondaryChanged: requestPaint()
+                            onThemeInfoChanged: requestPaint()
+                            onThemeSuccessChanged: requestPaint()
+                            onThemeSurfaceTextChanged: requestPaint()
+
+                            Connections {
+                                target: Theme
+                                function onCurrentThemeChanged() {
+                                    solarCanvas.requestPaint();
+                                }
+                            }
 
                             onPaint: {
                                 const ctx = getContext("2d");
@@ -1091,7 +1108,7 @@ PluginComponent {
                     width: parent.width
                     height: Theme.iconSizeLarge * 4
                     radius: Theme.cornerRadius
-                    color: Theme.surfaceContainerHighest
+                    color: Theme.chipSurface
 
                     Column {
                         anchors.fill: parent
