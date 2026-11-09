@@ -21,6 +21,11 @@ PluginSettings {
         }
     }
 
+    function updateDashTab(enabled) {
+        if (typeof SettingsData === "undefined" || typeof SettingsData.setDashTabEnabled !== "function") return;
+        SettingsData.setDashTabEnabled("plugin_goodweSolar2", enabled);
+    }
+
     StyledText {
         width: parent.width
         text: "GoodWe Solar Monitor Settings"
@@ -43,6 +48,20 @@ PluginSettings {
         description: "URL opened by the SEMS Portal button (e.g. global, AU, or EU portal)"
         placeholder: "https://au-semsplus.goodwe.com/"
         defaultValue: "https://au-semsplus.goodwe.com/"
+    }
+
+    ToggleSetting {
+        id: dashTabToggle
+        settingKey: "enableDashTab"
+        label: "Dashboard Panel (Dash Tab)"
+        description: "Add a dedicated Solar panel tab to the top navigation of DankDash (alongside Weather, Media, etc.)"
+        defaultValue: true
+
+        onValueChanged: {
+            if (isInitialized) {
+                root.updateDashTab(value);
+            }
+        }
     }
 
     ToggleSetting {
@@ -90,14 +109,31 @@ PluginSettings {
                 dashCardToggle.value = isPlaced;
             }
         }
+
+        function onDashTabsChanged() {
+            if (!SettingsData.dashTabs) return;
+            const tab = SettingsData.dashTabs.find(t => t.id === "plugin_goodweSolar2");
+            const isEnabled = tab ? !!tab.enabled : false;
+            if (dashTabToggle.isInitialized && dashTabToggle.value !== isEnabled) {
+                dashTabToggle.value = isEnabled;
+            }
+        }
     }
 
     Component.onCompleted: {
         Qt.callLater(() => {
-            if (typeof SettingsData !== "undefined" && SettingsData.dashCards) {
-                const isPlaced = SettingsData.dashCards.some(c => c.id === "plugin_goodweSolar2");
-                if (isPlaced) {
-                    dashCardToggle.value = true;
+            if (typeof SettingsData !== "undefined") {
+                if (SettingsData.dashCards) {
+                    const isPlaced = SettingsData.dashCards.some(c => c.id === "plugin_goodweSolar2");
+                    if (isPlaced) {
+                        dashCardToggle.value = true;
+                    }
+                }
+                if (SettingsData.dashTabs) {
+                    const tab = SettingsData.dashTabs.find(t => t.id === "plugin_goodweSolar2");
+                    if (tab) {
+                        dashTabToggle.value = !!tab.enabled;
+                    }
                 }
             }
         });
