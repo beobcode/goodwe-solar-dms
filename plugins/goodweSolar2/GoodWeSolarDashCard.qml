@@ -40,7 +40,7 @@ DashCardComponent {
     property string semsPortalUrl: pluginData.portalUrl || "https://au-semsplus.goodwe.com/"
     property int lastTelemetryTimestamp: 0
 
-    readonly property bool isCompact: height < 140
+    readonly property bool isCompact: height < (DashMetrics.gridRowUnit + DashMetrics.gridGap)
 
     readonly property string cacheFilePath: {
         if (pluginData.cacheFilePath && pluginData.cacheFilePath.trim().length > 0) {
@@ -384,7 +384,7 @@ DashCardComponent {
         Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            Layout.minimumHeight: 44
+            Layout.minimumHeight: Theme.iconSizeLarge + Theme.spacingS
             radius: Theme.cornerRadius / 2
             color: root.chipColor
 
@@ -478,7 +478,7 @@ DashCardComponent {
 
                 Column {
                     anchors.centerIn: parent
-                    spacing: 1
+                    spacing: Math.max(1, Theme.spacingXXS / 2)
                     StyledText {
                         text: "Battery"
                         font.pixelSize: Theme.fontSizeXSmall
@@ -504,7 +504,7 @@ DashCardComponent {
 
                 Column {
                     anchors.centerIn: parent
-                    spacing: 1
+                    spacing: Math.max(1, Theme.spacingXXS / 2)
                     StyledText {
                         text: "Home Load"
                         font.pixelSize: Theme.fontSizeXSmall
@@ -530,7 +530,7 @@ DashCardComponent {
 
                 Column {
                     anchors.centerIn: parent
-                    spacing: 1
+                    spacing: Math.max(1, Theme.spacingXXS / 2)
                     StyledText {
                         text: root.gridPowerW > 0 ? "Grid (Export)" : (root.gridPowerW < 0 ? "Grid (Import)" : "Grid Flow")
                         font.pixelSize: Theme.fontSizeXSmall

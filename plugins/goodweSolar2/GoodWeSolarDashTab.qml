@@ -249,13 +249,12 @@ DashTabComponent {
         onFileChanged: if (root.live) historyFileView.reload()
     }
 
-    Flickable {
+    DFlickable {
         id: flickable
         anchors.fill: parent
         contentWidth: width
         contentHeight: contentCol.implicitHeight + Theme.spacingXL
         clip: true
-        boundsBehavior: Flickable.StopAtBounds
 
         Column {
             id: contentCol
