@@ -13,11 +13,17 @@ PluginComponent {
 
     property var popoutService: null
 
-    pillClickAction: (x, y, width, section, screen) => {
+    pillClickAction: () => {
+        const tabId = "plugin_" + pluginId;
+        const host = root.surfaceContext?.host;
+        if (host && typeof host.triggerDashTab === "function") {
+            host.triggerDashTab(tabId);
+            return;
+        }
         if (typeof PopoutService !== "undefined" && PopoutService.toggleDankDash) {
-            PopoutService.toggleDankDash("plugin_" + pluginId, x, y, width, section, screen);
+            PopoutService.toggleDankDash(tabId);
         } else if (popoutService && popoutService.toggleDankDash) {
-            popoutService.toggleDankDash("plugin_" + pluginId, x, y, width, section, screen);
+            popoutService.toggleDankDash(tabId);
         }
     }
 

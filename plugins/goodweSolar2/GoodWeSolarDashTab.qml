@@ -596,7 +596,7 @@ DashTabComponent {
             // 3. Today's Power Flow & Battery Chart
             Rectangle {
                 width: parent.width
-                height: Theme.iconSizeLarge * 6
+                height: Math.round(Theme.iconSizeLarge * 7.5)
                 radius: Theme.cornerRadiusXL
                 color: Theme.cardSurface
                 border.width: Theme.layerOutlineWidth
