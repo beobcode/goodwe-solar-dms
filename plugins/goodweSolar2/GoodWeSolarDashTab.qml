@@ -593,10 +593,10 @@ DashTabComponent {
                 }
             }
 
-            // 3. Intra-day Power & SoC Chart
+            // 3. Today's Power Flow & Battery Chart
             Rectangle {
                 width: parent.width
-                height: Theme.iconSizeLarge * 9
+                height: Theme.iconSizeLarge * 6
                 radius: Theme.cornerRadiusXL
                 color: Theme.cardSurface
                 border.width: Theme.layerOutlineWidth
@@ -611,13 +611,13 @@ DashTabComponent {
                         width: parent.width
                         Column {
                             StyledText {
-                                text: "Intra-Day Generation, Load & Battery Curve"
+                                text: "Today's Power Flow & Battery"
                                 font.pixelSize: Theme.fontSizeMedium
                                 font.weight: Font.Bold
                                 color: Theme.surfaceText
                             }
                             StyledText {
-                                text: "Continuous telemetry sampled throughout the day"
+                                text: "Live generation, home load, grid exchange & battery charge"
                                 font.pixelSize: Theme.fontSizeSmall
                                 color: Theme.surfaceVariantText
                             }

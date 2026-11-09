@@ -13,6 +13,14 @@ PluginComponent {
 
     property var popoutService: null
 
+    pillClickAction: (x, y, width, section, screen) => {
+        if (typeof PopoutService !== "undefined" && PopoutService.toggleDankDash) {
+            PopoutService.toggleDankDash("plugin_" + pluginId, x, y, width, section, screen);
+        } else if (popoutService && popoutService.toggleDankDash) {
+            popoutService.toggleDankDash("plugin_" + pluginId, x, y, width, section, screen);
+        }
+    }
+
     // Solar Telemetry Properties
     property bool isOnline: false
     property string lastUpdated: ""
